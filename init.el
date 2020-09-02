@@ -13,7 +13,6 @@
       (left . 0)
       )
     )
-;;(set-fontset-font t 'japanese-jisx0208 "TakaoPGothic")
 ;; No tabs
 (setq-default indent-tabs-mode nil)
 ;; tool-bar
@@ -37,23 +36,23 @@
 ;;
 
 (require 'company)
-(global-company-mode) ; 全バッファで有効にする
-(setq company-transformers '(company-sort-by-backend-importance)) ;; ソート順
-(setq company-idle-delay 0) ; デフォルトは0.5
-(setq company-minimum-prefix-length 3) ; デフォルトは4
-(setq company-selection-wrap-around t) ; 候補の一番下でさらに下に行こうとすると一番上に戻る
+(global-company-mode)
+(setq company-transformers '(company-sort-by-backend-importance)) 
+(setq company-idle-delay 0) 
+(setq company-minimum-prefix-length 2) 
+(setq company-selection-wrap-around t)
 (setq completion-ignore-case t)
 (setq company-dabbrev-downcase nil)
 (global-set-key (kbd "C-M-i") 'company-complete)
-(define-key company-active-map (kbd "C-n") 'company-select-next) ;; C-n, C-pで補完候補を次/前の候補を選択
+(define-key company-active-map (kbd "C-n") 'company-select-next) 
 (define-key company-active-map (kbd "C-p") 'company-select-previous)
 (define-key company-search-map (kbd "C-n") 'company-select-next)
 (define-key company-search-map (kbd "C-p") 'company-select-previous)
-(define-key company-active-map (kbd "C-s") 'company-filter-candidates) ;; C-sで絞り込む
-(define-key company-active-map (kbd "C-i") 'company-complete-selection) ;; TABで候補を設定
-(define-key company-active-map [tab] 'company-complete-selection) ;; TABで候補を設定
-(define-key company-active-map (kbd "C-f") 'company-complete-selection) ;; C-fで候補を設定
-(define-key emacs-lisp-mode-map (kbd "C-M-i") 'company-complete) ;; 各種メジャーモードでも C-M-iで company-modeの補完を使う
+(define-key company-active-map (kbd "C-s") 'company-filter-candidates)
+(define-key company-active-map (kbd "C-i") 'company-complete-selection) 
+(define-key company-active-map [tab] 'company-complete-selection)
+(define-key company-active-map (kbd "C-f") 'company-complete-selection)
+(define-key emacs-lisp-mode-map (kbd "C-M-i") 'company-complete)
 
 ;;
 ;; yatex
@@ -158,50 +157,28 @@
 ;;
 
 (require 'verilog-mode)
-;;(defun prepend-path ( my-path )
-;;(setq load-path (cons (expand-file-name my-path) load-path)))
-
-;(defun append-path ( my-path )
-;(setq load-path (append load-path (list (expand-file-name my-path)))))
-
-;;Lood first in the directory ~/elisp for elisp files
-;(prepend-path "~/.emacs.d/elisp")
-
-;;Load verilog-mode only when needed
 (autoload 'verilog-mode "verilog-mode" "Verilog mode" t )
-
-;; Any files that end in .v should be in verilog mode
-
 (setq auto-mode-alist (cons '("\\.v\\'" . verilog-mode) auto-mode-alist))
 (setq auto-mode-alist (cons '("\\.sv\\'" . verilog-mode) auto-mode-alist))
-
-;; company-mode doesn't support verilog-mode yet. But it can be fixed by add verilog keywords to solve this problem
 (add-to-list 'company-keywords-alist (cons 'verilog-mode verilog-keywords))
-
-;; Any files in verilog mode shuold have their keywords colorized
 (add-hook 'verilog-mode-hook '(lambda () (font-look-mode 1)))
 
 (setq verilog-indent-level             4
       verilog-indent-level-module      4
       verilog-indent-level-declaration 4
       verilog-indent-level-behavioral  4
+      verilog-case-indent              4
+      verilog-indent-level-directive   1
       verilog-auto-endcomments         t
+      verilog-auto-indent-on-newline   t
       verilog-tab-always-indent        t
-      verilog-auto-newline             nil)
-
-; (setq verilog-indent-level             3
-;       verilog-indent-level-module      3
-;       verilog-indent-level-declaration 3
-;       verilog-indent-level-behavioral  3
-;       verilog-indent-level-directive   1
-;       verilog-case-indent              2
-;       verilog-auto-newline             t
-;       verilog-auto-indent-on-newline   t
+      verilog-indent-begin-after-if    t
+      verilog-auto-newline             nil
+      verilog-auto-lineup              '(all)
 ;       verilog-tab-always-indent        t
 ;       verilog-auto-endcomments         t
 ;       verilog-minimum-comment-distance 40
-;       verilog-indent-begin-after-if    t
-;       verilog-auto-lineup              '(all))
+)
 
 ;;
 ;; use-package
@@ -279,8 +256,8 @@
 
 (require 'neotree)
 (use-package neotree
-  :init
-  (setq-default neo-keymap-style 'concise)
+;;  :init
+;;  (setq-default neo-keymap-style 'concise)
   :config
   (setq neo-smart-open t)
   (setq neo-create-file-auto-open t)
@@ -294,10 +271,6 @@
   )
 
 (custom-set-variables
- ;; custom-set-variables was added by Custom.
- ;; If you edit it by hand, you could mess it up, so be careful.
- ;; Your init file should contain only one such instance.
- ;; If there is more than one, they won't work right.
  '(package-selected-packages
    (quote
     (yatex yasnippet use-package powerline neotree minimap flycheck company))))
