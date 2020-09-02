@@ -1,21 +1,24 @@
 (package-initialize)
+(setq package-archives
+      '(("gnu" . "http://elpa.gnu.org/packages/")
+        ("melpa" . "http://melpa.org/packages/")
+        ("org" . "http://orgmode.org/elpa/")))
 
-
+;; window size
+(add-to-list 'default-frame-alist '(height . 150))
+(add-to-list 'default-frame-alist '(width . 120))
 ;; No tabs
-
 (setq-default indent-tabs-mode nil)
-
-;;
 ;; tool-bar
-;;
-
 (menu-bar-mode -1)
-
-
-;;
+(toggle-scroll-bar -1)
+(tool-bar-mode -1)
+;; set transparency
+(set-frame-parameter (selected-frame) 'alpha '(90 90))
+(add-to-list 'default-frame-alist '(alpha 90 90))
+(set-background-color "#313861")
+(set-foreground-color "#FFF")
 ;; colum-num
-;;
-
 (global-linum-mode t)
 (setq linum-format "%3d ")
 (set-face-foreground 'linum "gray60")
@@ -42,30 +45,34 @@
 (define-key company-active-map [tab] 'company-complete-selection) ;; TABで候補を設定
 (define-key company-active-map (kbd "C-f") 'company-complete-selection) ;; C-fで候補を設定
 (define-key emacs-lisp-mode-map (kbd "C-M-i") 'company-complete) ;; 各種メジャーモードでも C-M-iで company-modeの補完を使う
+
 (custom-set-variables
  ;; custom-set-variables was added by Custom.
  ;; If you edit it by hand, you could mess it up, so be careful.
  ;; Your init file should contain only one such instance.
  ;; If there is more than one, they won't work right.
- '(minimap-mode t)
- '(minimap-recreate-window t)
- '(minimap-window-location (quote right))
- '(package-selected-packages (quote (minimap powerline yatex yasnippet company)))
+ '(ansi-color-names-vector
+   ["#2d3743" "#ff4242" "#74af68" "#dbdb95" "#34cae2" "#008b8b" "#00ede1" "#e1e1e0"])
+ '(custom-enabled-themes nil)
+ '(inhibit-startup-screen t)
+ '(package-selected-packages
+   (quote
+    (neotree flycheck minimap powerline yatex yasnippet company)))
  '(verilog-auto-wire-type nil))
-(custom-set-faces
- ;; custom-set-faces was added by Custom.
- ;; If you edit it by hand, you could mess it up, so be careful.
- ;; Your init file should contain only one such instance.
- ;; If there is more than one, they won't work right.
- '(font-lock-comment-face ((t (:foreground "green"))))
- '(font-lock-doc-face ((t (:foreground "color-99"))))
- '(font-lock-function-name-face ((t (:foreground "color-33"))))
- '(font-lock-negation-char-face ((t (:foreground "brightwhite"))))
- '(font-lock-preprocessor-face ((t (:foreground "brightmagenta"))))
- '(font-lock-string-face ((t (:foreground "color-105"))))
- '(font-lock-type-face ((t (:foreground "color-130"))))
- '(font-lock-variable-name-face ((t (:foreground "brightblue"))))
- '(minibuffer-prompt ((t (:foreground "color-39")))))
+;; (custom-set-faces
+;;  ;; custom-set-faces was added by Custom.
+;;  ;; If you edit it by hand, you could mess it up, so be careful.
+;;  ;; Your init file should contain only one such instance.
+;;  ;; If there is more than one, they won't work right.
+;;  '(font-lock-comment-face ((t (:foreground "green"))))
+;;  '(font-lock-doc-face ((t (:foreground "color-99"))))
+;;  '(font-lock-function-name-face ((t (:foreground "color-33"))))
+;;  '(font-lock-negation-char-face ((t (:foreground "brightwhite"))))
+;;  '(font-lock-preprocessor-face ((t (:foreground "brightmagenta"))))
+;;  '(font-lock-string-face ((t (:foreground "color-105"))))
+;;  '(font-lock-type-face ((t (:foreground "color-130"))))
+;;  '(font-lock-variable-name-face ((t (:foreground "brightblue"))))
+;;  '(minibuffer-prompt ((t (:foreground "color-39")))))
 
 ;;
 ;; yatex
@@ -78,13 +85,6 @@
 (setq YaTeX-kanji-code nil)
 (setq YaTeX-latex-message-code 'utf-8)
 
-;;
-;; package
-;;
-(require 'package)
-(add-to-list 'package-archives '("melpa" . "http://melpa.milkbox.net/packages/"))
-(add-to-list 'package-archives '("marmalade" . "http://marmalade-repo.org/packages/"))
-(fset 'package-desc-vers 'package--ac-desc-version)
 
 ;;
 ;; powerline
@@ -277,3 +277,40 @@
 
 (add-to-list 'auto-mode-alist '(".bashrc$" . sh-mode))
 (add-to-list 'auto-mode-alist '("\\.sh$" . sh-mode))
+
+;;
+;; minimap-mode
+;;
+
+(require 'minimap)
+(minimap-mode t); 常に有効にする
+(setq minimap-window-location 'right)
+(setq minimap-update-delay 0.2)
+(setq minimap-minimum-width 20)
+(setq minimap-highlight-line t)
+
+;; changing colors
+(custom-set-faces
+ ;; custom-set-faces was added by Custom.
+ ;; If you edit it by hand, you could mess it up, so be careful.
+ ;; Your init file should contain only one such instance.
+ ;; If there is more than one, they won't work right.
+ '(minimap-active-region-background ((((background dark)) (:background "#2A2A2A222222")) (t (:background "#D3D3D3222222"))) nil (quote minimap))
+ '(minimap-current-line-face ((((background dark)) (:background "dark gray")) (t (:background "dark gray60"))) nil (quote minimap)))
+(set-face-attribute 'region nil :background "#666")
+
+(require 'neotree)
+(use-package neotree
+  :init
+  (setq-default neo-keymap-style 'concise)
+  :config
+  (setq neo-smart-open t)
+  (setq neo-create-file-auto-open t)
+  (setq-default neo-show-hidden-files t)
+;; (setq neo-theme (if (display-graphic-p) 'icons 'arrow))
+  (bind-key [f9] 'neotree-toggle)
+  (bind-key "RET" 'neotree-enter-hide neotree-mode-map)
+  (bind-key "a" 'neotree-hidden-file-toggle neotree-mode-map)
+  (bind-key "<left>" 'neotree-select-up-node neotree-mode-map)
+  (bind-key "<right>" 'neotree-change-root neotree-mode-map)
+)
