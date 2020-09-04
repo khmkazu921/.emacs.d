@@ -1,0 +1,8 @@
+/ssh:kazuki:/home/kazuki/smaller_accel/art_initialize.sv
+/tmp/#!ssh:kazuki:!home!kazuki!smaller_accel!art_initialize.sv#
+/ssh:kazuki:/home/kazuki/smaller_accel/offset_local.sv
+/tmp/#!ssh:kazuki:!home!kazuki!smaller_accel!offset_local.sv#
+/ssh:kazuki:/home/kazuki/smaller_accel/AXIS.sv
+/tmp/#!ssh:kazuki:!home!kazuki!smaller_accel!AXIS.sv#
+/ssh:kazuki:/home/kazuki/smaller_accel/addsub.sv
+/tmp/#!ssh:kazuki:!home!kazuki!smaller_accel!addsub.sv#

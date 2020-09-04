@@ -1,4 +1,4 @@
-;; -*- emacs-lisp -*- <20/09/02 23:48:54 /home/kazuki/.emacs.d/tramp>
+;; -*- emacs-lisp -*- <20/09/04 13:08:28 /home/kazuki/.emacs.d/tramp>
 ;; Tramp connection history.  Don't change this file.
 ;; You can delete it, forcing Tramp to reapply the checks.
 
@@ -10,18 +10,21 @@
    ("/bin" "/usr/bin" "/sbin" "/usr/sbin" "/usr/local/bin" "/usr/local/sbin"))
   ("remote-shell" "/bin/sh")
   ("~" "/home/kazuki")
-  ("perl-file-spec" t)
-  ("perl-cwd-realpath" t)
-  ("perl" "\\perl")
   ("file-exists" "test -e")
   ("case-insensitive" nil)
-  ("readlink" "\\readlink")
-  ("stat" "env QUOTING_STYLE=locale \\stat")
-  ("id" "/usr/bin/id")
-  ("gid-integer" 1000)
-  ("gid-string" "kazuki")
-  ("env-u-option" t)
   ("ls" "/bin/ls --color=never")
   ("ls-quoting-style" t)
   ("ls-dired" t)
-  ("git" "\\git")))
+  ("stat" "env QUOTING_STYLE=locale \\stat")
+  ("id" "/usr/bin/id")
+  ("gid-integer" 1000)
+  ("readlink" "\\readlink")
+  ("gid-string" "kazuki")
+  ("perl-file-spec" t)
+  ("perl-cwd-realpath" t)
+  ("perl" "\\perl")
+  ("env-u-option" t)
+  ("uid-integer" 1000)
+  ("tmpdir" "/ssh:kazuki:/tmp")
+  ("touch-t" t)
+  ("touch" "\\touch")))

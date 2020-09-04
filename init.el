@@ -5,31 +5,27 @@
         ("org" . "http://orgmode.org/elpa/")))
 
 ;; window size
-(setq default-frame-alist
-    '(
-      (width . 120)
-      (height . 155)
-      (top . 0)
-      (left . 0)
-      )
-    )
-;; No tabs
+(setq default-frame-alist '(
+ (width . 120)
+ (height . 155)
+ (top . 0)
+ (left . 0)
+))
 (setq-default indent-tabs-mode nil)
-;; tool-bar
 (menu-bar-mode -1)
-(toggle-scroll-bar -1)
 (tool-bar-mode -1)
-;; set transparency
+(if window-system (progn
+(toggle-scroll-bar -1)
+(setq linum-format "%3d")
 (set-frame-parameter (selected-frame) 'alpha '(95 95))
 (add-to-list 'default-frame-alist '(alpha 95 95))
-;;(set-background-color "#313861")
-;;(set-foreground-color "#FFF")
-;; colum-num
+))
 (global-linum-mode t)
-(setq linum-format "%3d")
 (set-face-foreground 'linum "gray60")
-;; theme
 (load-theme 'wombat t)
+(if (not window-system) (progn
+ (setq linum-format "%3d ")
+))
 
 ;;
 ;; company
@@ -237,13 +233,13 @@
 ;; minimap-mode
 ;;
 
+(if window-system (progn
 (require 'minimap)
 (minimap-mode t); 常に有効にする
 (setq minimap-window-location 'right)
-(setq minimap-update-delay 0.2)
+(setq minimap-update-delay 0.1)
 (setq minimap-minimum-width 20)
 (setq minimap-highlight-line t)
-
 ;; changing colors
 (custom-set-faces
  ;; custom-set-faces was added by Custom.
@@ -253,7 +249,8 @@
  '(minimap-active-region-background ((((background dark)) (:background "gray40")) (t (:background "gray60"))) nil (quote minimap))
  '(minimap-current-line-face ((((background dark)) (:background "gray60")) (t (:background "gray80"))) nil (quote minimap)))
 (set-face-attribute 'region nil :background "#666")
-
+))
+  
 (require 'neotree)
 (use-package neotree
 ;;  :init
@@ -271,6 +268,11 @@
   )
 
 (custom-set-variables
+ ;; custom-set-variables was added by Custom.
+ ;; If you edit it by hand, you could mess it up, so be careful.
+ ;; Your init file should contain only one such instance.
+ ;; If there is more than one, they won't work right.
  '(package-selected-packages
    (quote
-    (yatex yasnippet use-package powerline neotree minimap flycheck company))))
+    (cuda-mode yatex yasnippet use-package powerline neotree minimap flycheck company))))
+
