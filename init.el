@@ -26,6 +26,12 @@
 (if (not window-system) (progn
  (setq linum-format "%3d ")
 ))
+(add-hook 'after-init-hook (lambda()
+    (setq w (selected-window))
+    (setq w2 (split-window w (- (window-height w) 4)))
+    (select-window w2)
+    (ansi-term "/bin/bash")
+    (select-window w)))
 
 ;;
 ;; company
