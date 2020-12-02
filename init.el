@@ -1,37 +1,61 @@
+
 (package-initialize)
 (setq package-archives
       '(("gnu" . "http://elpa.gnu.org/packages/")
         ("melpa" . "http://melpa.org/packages/")
         ("org" . "http://orgmode.org/elpa/")))
 
-;; window size
-(setq default-frame-alist '(
- (width . 120)
- (height . 155)
- (top . 0)
- (left . 0)
-))
+;;
+;; window
+;;
+
+(setq default-frame-alist '((width . 180) (height . 155) (top . 0) (left . 0)))
 (setq-default indent-tabs-mode nil)
 (menu-bar-mode -1)
 (tool-bar-mode -1)
-(if window-system (progn
-(toggle-scroll-bar -1)
-(setq linum-format "%3d")
-(set-frame-parameter (selected-frame) 'alpha '(95 95))
-(add-to-list 'default-frame-alist '(alpha 95 95))
-))
 (global-linum-mode t)
+(if window-system (progn
+                    (toggle-scroll-bar -1)
+                    (setq linum-format "%3d")
+                    (set-frame-parameter (selected-frame) 'alpha '(95 95))
+                    (add-to-list 'default-frame-alist '(alpha 95 95))))
+
 (set-face-foreground 'linum "gray60")
 (load-theme 'wombat t)
 (if (not window-system) (progn
- (setq linum-format "%3d ")
-))
-(add-hook 'after-init-hook (lambda()
-    (setq w (selected-window))
-    (setq w2 (split-window w (- (window-height w) 4)))
-    (select-window w2)
-    (ansi-term "/bin/bash")
-    (select-window w)))
+                          (setq linum-format "%3d ")))
+
+;;
+;; auto-mode-alist
+;;
+
+(setq auto-mode-alist
+      (append '(("\\.tex\\'"   . yatex-mode)
+                ("\\.sty\\'"   . yatex-mode)
+                ("\\.v\\'"     . verilog-mode)
+                ("\\.sv\\'"    . verilog-mode)
+                ("\\.c\\'"     . c-mode)
+                ("\\.h\\'"     . c-mode)
+                ("\\.cpp\\'"   . c++-mode)
+                ("\\.cc\\'"    . c++-mode)
+                ("\\.cxx\\'"   . c++-mode)
+                ("\\.hh\\'"    . c++-mode)
+                ("\\.py\\'"    . python-mode)
+                ("Makefile\\'" . makefile-mode)
+                (".bashrc\\'" . sh-mode)
+                ("\\.sh\\'"   . sh-mode)
+                ("\\.el\\'"  .  lisp-mode))))
+
+;;
+;; backup
+;;
+
+(setq backup-by-copying t
+      backup-directory-alist '(("." . "~/.emacs.d/backup"))
+      delete-old-versions t
+      kept-new-versions 6
+      kept-old-versions 2
+      version-control t)
 
 ;;
 ;; company
@@ -40,33 +64,21 @@
 (require 'company)
 (global-company-mode)
 (setq company-transformers '(company-sort-by-backend-importance)) 
-(setq company-idle-delay 0) 
-(setq company-minimum-prefix-length 2) 
+(setq company-idle-delay 0)
+(setq company-minimum-prefix-length 1) 
 (setq company-selection-wrap-around t)
 (setq completion-ignore-case t)
 (setq company-dabbrev-downcase nil)
-(global-set-key (kbd "C-M-i") 'company-complete)
-(define-key company-active-map (kbd "C-n") 'company-select-next) 
-(define-key company-active-map (kbd "C-p") 'company-select-previous)
-(define-key company-search-map (kbd "C-n") 'company-select-next)
-(define-key company-search-map (kbd "C-p") 'company-select-previous)
-(define-key company-active-map (kbd "C-s") 'company-filter-candidates)
-(define-key company-active-map (kbd "C-i") 'company-complete-selection) 
 (define-key company-active-map [tab] 'company-complete-selection)
-(define-key company-active-map (kbd "C-f") 'company-complete-selection)
-(define-key emacs-lisp-mode-map (kbd "C-M-i") 'company-complete)
 
 ;;
 ;; yatex
 ;;
-(autoload 'yatex-mode "yatex" "Yet Another LaTeX mode" t)
-(setq auto-mode-alist
-      (append '(("\\.tex$" . yatex-mode)
-                ("\\.sty$" . yatex-mode))))
-(setq YaTeX-inhibit-prefix-letter t)
+
+;(autoload 'yatex-mode "yatex" "Yet Another LaTeX mode" t)
+;(setq YaTeX-inhibit-prefix-letter t)
 (setq YaTeX-kanji-code nil)
 (setq YaTeX-latex-message-code 'utf-8)
-
 
 ;;
 ;; powerline
@@ -160,8 +172,6 @@
 
 (require 'verilog-mode)
 (autoload 'verilog-mode "verilog-mode" "Verilog mode" t )
-(setq auto-mode-alist (cons '("\\.v\\'" . verilog-mode) auto-mode-alist))
-(setq auto-mode-alist (cons '("\\.sv\\'" . verilog-mode) auto-mode-alist))
 (add-to-list 'company-keywords-alist (cons 'verilog-mode verilog-keywords))
 (add-hook 'verilog-mode-hook '(lambda () (font-look-mode 1)))
 
@@ -208,32 +218,19 @@
 ;; lisp-mode
 ;;
 
-(add-to-list 'auto-mode-alist '("\\.el$" . lisp-mode))
-(autoload 'lisp-mode "lisp" nil t) 
+; (autoload 'lisp-mode "lisp" nil t) 
 
 ;;
 ;; c-mode
 ;;
 
-(add-to-list 'auto-mode-alist '("\\.c$" . c-mode))
-(add-to-list 'auto-mode-alist '("\\.h$" . c-mode))
 (autoload 'c-mode "cc-mode" nil t) 
 (setq-default c-default-style "linux"
               c-basic-offset 4)
 (put 'downcase-region 'disabled nil)
-
-;;
-;; makefile-mode
-;;
-
-(add-to-list 'auto-mode-alist '("Makefile$" . makefile-mode))
-
-;;
-;; sh-mode
-;;
-
-(add-to-list 'auto-mode-alist '(".bashrc$" . sh-mode))
-(add-to-list 'auto-mode-alist '("\\.sh$" . sh-mode))
+(eval-after-load 'c-modea (global-set-key (kbd "C-c p") "printf(\"%d\",);") )
+(eval-after-load 'c-modea (global-set-key (kbd "C-c f") "for(int i=0; i<; i++) { }") )
+(add-hook 'c++-mode-hook (lambda () (setq flycheck-gcc-language-standard "c++11")))
 
 ;;
 ;; minimap-mode
@@ -243,9 +240,11 @@
 (require 'minimap)
 (minimap-mode t); 常に有効にする
 (setq minimap-window-location 'right)
-(setq minimap-update-delay 0.1)
+(setq minimap-update-delay 0)
 (setq minimap-minimum-width 20)
 (setq minimap-highlight-line t)
+(setq minimap-width-fraction 0.0
+      minimap-dedicated-window t)
 ;; changing colors
 (custom-set-faces
  ;; custom-set-faces was added by Custom.
@@ -256,8 +255,21 @@
  '(minimap-current-line-face ((((background dark)) (:background "gray60")) (t (:background "gray80"))) nil (quote minimap)))
 (set-face-attribute 'region nil :background "#666")
 ))
-  
+
+;;
+;; neo-tree
+;;
+
 (require 'neotree)
+(defun neotree-startup ()
+  (interactive)
+  (neotree-show)
+  (call-interactively 'other-window))
+
+(if (daemonp)
+    (add-hook 'server-switch-hook #'neotree-startup)
+  (add-hook 'after-init-hook #'neotree-startup)
+)
 (use-package neotree
 ;;  :init
 ;;  (setq-default neo-keymap-style 'concise)
@@ -266,7 +278,7 @@
   (setq neo-create-file-auto-open t)
   (setq-default neo-show-hidden-files t)
   (setq neo-theme 'ascii)
-  (bind-key [f9] 'neotree-toggle)
+  (bind-key [f10] 'neotree-toggle)
   (bind-key "RET" 'neotree-enter-hide neotree-mode-map)
   (bind-key "a" 'neotree-hidden-file-toggle neotree-mode-map)
   (bind-key "<left>" 'neotree-select-up-node neotree-mode-map)
