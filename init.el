@@ -291,6 +291,17 @@
  ;; Your init file should contain only one such instance.
  ;; If there is more than one, they won't work right.
  '(package-selected-packages
-   (quote
-    (cuda-mode yatex yasnippet use-package powerline neotree minimap flycheck company))))
+   '(cuda-mode yatex yasnippet use-package powerline neotree minimap flycheck company)))
+
+(custom-set-faces
+ '(minimap-active-region-background ((((background dark)) (:background "gray40")) (t (:background "gray60"))) nil 'minimap)
+ '(minimap-current-line-face ((((background dark)) (:background "gray60")) (t (:background "gray80"))) nil 'minimap)
+ '(mode-line ((t (:background "#000088" :foreground "white"))))
+ '(mode-line-inactive ((t (:background "#000022" :foreground "white"))))
+ '(powerline-active0 ((t (:background "#7777AA" :foreground "#FFFACD" :weight bold))))
+ '(powerline-active1 ((t (:background "#6666CC" :foreground "#fffacd" :weight bold))))
+ '(powerline-active2 ((t (:background "midnight blue" :foreground "white" :weight bold))))
+ '(powerline-inactive0 ((t (:inherit mode-line-inactive))))
+ '(powerline-inactive1 ((t (:inherit mode-line-inactive))))
+ '(powerline-inactive2 ((t (:inherit mode-line-inactive)))))
 
