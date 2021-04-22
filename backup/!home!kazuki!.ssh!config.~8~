@@ -1,0 +1,45 @@
+Host *
+     KexAlgorithms +diffie-hellman-group1-sha1
+
+Host kcu
+     HostName 192.168.0.32
+     User furukawa
+     IdentityFile ~/.ssh/kcu_rsa
+     ForwardX11 yes
+     ForwardX11Trusted yes
+
+Host ppx
+     HostName ppxsvc.ccs.tsukuba.ac.jp
+     User furukawa
+     IdentityFile ~/.ssh/ppx_rsa
+     ForwardX11 yes
+     ForwardX11Trusted yes
+
+Host github github.com
+     HostName github.com
+     IdentityFile ~/.ssh/git_rsa
+     User git
+
+Host gitlab 192.168.0.9
+     HostName git.local
+     IdentityFile ~/.ssh/git_rsa
+     User git
+     TCPKeepAlive yes
+     Identitiesonly yes
+
+Host hv
+     HostName 192.168.0.2
+     IdentityFile ~/.ssh/lab_rsa
+     User furukawa
+     TCPKeepAlive yes
+     Identitiesonly yes
+     ForwardX11 yes
+     ForwardX11Trusted yes
+
+Host ldap 192.168.0.10
+     IdentityFile ~/.ssh/lab_rsa
+     User furukawa
+     TCPKeepAlive yes
+     Identitiesonly yes
+     ForwardX11 yes
+     ForwardX11Trusted yes

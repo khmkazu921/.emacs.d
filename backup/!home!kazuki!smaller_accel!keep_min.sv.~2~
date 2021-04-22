@@ -1,0 +1,116 @@
+//-----------------------------------------------------------------------------
+// Title         : Elementary Operation
+// Project       : smaller_accel
+//-----------------------------------------------------------------------------
+// File          : addsub.sv
+// Author        : kazuki  <kazuki@kz-desk>
+// Created       : 25.08.2020
+// Last modified : 25.08.2020
+//-----------------------------------------------------------------------------
+// Description :
+// 
+//-----------------------------------------------------------------------------
+// Copyright (c) 2020 by  This model is the confidential and
+// proprietary property of  and the possession or use of this
+// file requires a written license from .
+//------------------------------------------------------------------------------
+// Modification history :
+// 25.08.2020 : created
+//-----------------------------------------------------------------------------
+
+`include "AXIS.sv"
+
+module keep_min
+  import top_package::*;
+  (
+   input clk,
+   input valid,
+   input [31:0] xr, yr, zr,
+   output reg [31:0] keep_min,
+   output state_xyz xyz
+   );
+    
+    AXIS a, b, c;
+    
+    assign a.a_tvalid = valid;
+    assign a.b_tvalid = valid;
+    assign a.r_tready = 1;
+    assign b.a_tvalid = valid;
+    assign b.b_tvalid = valid;
+    assign b.r_tready = 1;
+    assign c.a_tvalid = valid;
+    assign c.b_tvalid = valid;
+    assign c.r_tready = 1;
+
+    assign a.a_tdata = xr;
+    assign a.a_tdata = yr;
+
+    assign b.a_tdata = yr;
+    assign b.b_tdata = zr;
+
+    assign c.a_tdata = zr;
+    assign c.b_tdata = xr;
+
+    always_comb begin
+        if(a.r_tdata[0] & ~b.r_tdata[0]) begin
+            keep_min = yr;
+            rmin = Y;
+        end
+        else if(b.r_tdata[0] & ~c.r_tdata[0]) begin
+            keep_min = zr;
+            rmin = Z;
+        end
+        else if(c.r_tdata[0] & ~a.r_tdata[0]) begin
+            keep_min = xr;
+            rmin = X;
+        end
+        else begin 
+            keep_min = 'x;
+            rmin = END_XYZ;
+        end
+    end
+    
+    float_greater float_greater_0
+      (
+       .aclk(clk),
+       .s_axis_a_tdata(a.a_tdata),
+       .s_axis_a_tready(a.a_tready),
+       .s_axis_a_tvalid(a.a_tvalid),
+       .s_axis_b_tdata (a.b_tdata),
+       .s_axis_b_tready(a.b_tready),
+       .s_axis_b_tvalid(a.b_tvalid),
+       .m_axis_result_tdata(a.r_tdata),
+       .m_axis_result_tvalid(a.r_tvalid),
+       .m_axis_result_tready(a.r_tready)
+    );
+
+    float_greater float_greater_1
+      (
+       .aclk(clk),
+       .s_axis_a_tdata(b.a_tdata),
+       .s_axis_a_tready(b.a_tready),
+       .s_axis_a_tvalid(b.a_tvalid),
+       .s_axis_b_tdata (b.b_tdata),
+       .s_axis_b_tready(b.b_tready),
+       .s_axis_b_tvalid(b.b_tvalid),
+       .m_axis_result_tdata(b.r_tdata),
+       .m_axis_result_tvalid(b.r_tvalid),
+       .m_axis_result_tready(b.r_tready)
+    );
+
+    float_greater float_greater_2
+      (
+       .aclk(clk),
+       .s_axis_a_tdata(c.a_tdata),
+       .s_axis_a_tready(c.a_tready),
+       .s_axis_a_tvalid(c.a_tvalid),
+       .s_axis_b_tdata (c.b_tdata),
+       .s_axis_b_tready(c.b_tready),
+       .s_axis_b_tvalid(c.b_tvalid),
+       .m_axis_result_tdata(c.r_tdata),
+       .m_axis_result_tvalid(c.r_tvalid),
+       .m_axis_result_tready(c.r_tready)
+    );
+
+endmodule
+       

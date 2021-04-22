@@ -1,0 +1,904 @@
+`timescale 1ns / 1ps
+//////////////////////////////////////////////////////////////////////////////////
+// Company: 
+// Engineer: 
+// 
+// Create Date: 12/14/2020
+// Design Name: 
+// Module Name: read initial mesh
+// Project Name: 
+// Target Devices: 
+// Tool Versions: 
+// Description: 
+// 
+// Dependencies: 
+// 
+// Revision:
+// Revision 0.01 - File Created
+// Additional Comments:
+// 
+//////////////////////////////////////////////////////////////////////////////////
+
+module read_initial_mesh
+  #(
+    parameter PORT_NUM = 2,
+    parameter SPM_NUM = 1,
+    parameter BLK_NUM = 32,
+    parameter MESH_PER_URAM = 8,
+    parameter BURST_LEN  = 16,
+    parameter DATA_WIDTH = 256,
+    parameter LOG_DATA_DEPTH = 12 //log(40block * 64mesh)
+    )
+    (
+     input clk,
+     input resetn
+     //input flag_finish_calc//,
+     // input reg [1:0] state,
+     );
+    
+    genvar port;
+    AXI3 axi3[2]();
+
+    // Write to URAM
+    reg [ 7:0] piramid_id = 0;
+    reg tmp_resetn;
+    reg flag_last_by;
+    wire flag_last_bz;
+    reg flag_finish_quater, flag_last_quater;
+    reg [8:0] ar_a;
+    reg  [6:0] bx[PORT_NUM], bz;
+    wire [6:0] by;
+    
+    wire flag_offset;
+    reg flag_init;
+    wire [PORT_NUM-1:0] flag_finish_hbm_blk;
+    //reg flag_finish_read;// = flag_last_quater & &flag_finish_hbm_blk;
+    wire flag_finish_bybz = (by[bz] >= 8) & &flag_finish_hbm_blk;
+    wire flag_last_sg = piramid_id >= 192;
+    
+    reg [ 6:0] blk_id;
+    reg [255:0] tmp_rdata[PORT_NUM];
+    reg [PORT_NUM-1:0]blk_next, burst_next;
+    reg [ 2:0] aligned_id;
+    
+    localparam int param_pointer[8] = { 2, 3, 3, 4, 4, 5, 5, 6};
+    localparam int separate[8]      = { 0, 2, 5, 7,11,15,20,25};
+    reg  [8:0] addr_offset; // log2(3072/128*16) = 8.5
+    wire [3:0] dout_offset; // 64/4
+    reg  [3:0] by_offset[8], by_pointer, wb_pointer[8];
+    reg        ena_offset, valid_offset, valid_dout_offset, valid_bxyz, valid_tmp_raddr;
+    reg [SPM_NUM-1:0] ena_spm_in, ena_spm_out, wea_spm_in, wea_spm_out;
+    reg [SPM_NUM-1:0] valid_spm_in, valid_spm_out;    
+    reg [       11:0] addra_spm_in[SPM_NUM], addrb_spm_in [SPM_NUM], addra_spm_out[SPM_NUM], addrb_spm_out[SPM_NUM];
+    reg [     3071:0] doutb_spm_in[SPM_NUM], doutb_spm_out[SPM_NUM], dina_spm_in [SPM_NUM], dina_spm_out [SPM_NUM];
+    
+    wire [PORT_NUM-1:0] rlast, wlast;
+    reg [DATA_WIDTH-1:0] hbm_rdata[PORT_NUM], hbm_wdata[PORT_NUM];
+    reg [33:0] hbm_waddr[PORT_NUM], hbm_raddr[PORT_NUM];
+    reg [33-14:0] tmp_hbm_waddr[PORT_NUM], tmp_hbm_raddr[PORT_NUM];
+    reg [ 4:0] hbm_port[PORT_NUM], tmp_hbm_port[PORT_NUM];
+    wire [PORT_NUM-1:0] hbm_arnext, hbm_awnext, hbm_wnext, hbm_rnext, hbm_bnext;
+    reg  [PORT_NUM-1:0] tmp_hbm_arnext, tmp_hbm_rlast, tmp_hbm_rvalid;
+    reg  [PORT_NUM-1:0] hbm_awvalid, hbm_arvalid, hbm_wvalid, hbm_rready, hbm_bready;
+    wire [PORT_NUM-1:0] hbm_awready, hbm_arready, hbm_rvalid, hbm_rlast, hbm_wready, hbm_bvalid;
+    wire [1:0] hbm_rresp[PORT_NUM], hbm_bresp[PORT_NUM];
+    reg  [LOG_DATA_DEPTH-1:0] hbm_awaddr[PORT_NUM];
+    reg [1:0] count_read_offset;
+    reg [2:0] ar_q, r_q;
+    reg [ 2:0] r_burst_id[PORT_NUM], ar_burst_id;
+    reg [6:0] count_rnext; 
+    reg [5:0] count_we;
+    reg  [  11:0] count_mesh;
+    reg [PORT_NUM-1:0] mesh_data_en;
+    wire flag_hbm_rnext, flag_last_rq, flag_last_rblk, flag_last_spm_mesh;
+  
+    enum {RESET_SPM, INIT_L, INIT_U, WB_L, WB_U, RO_L, RO_U, WAIT_L, WAIT_U, FINISH_SPM} spm_state, tmp_spm_state;
+    enum {RESET_DATA, WRITE_HBM, READ_HBM, FINISH_HBM} hbm_data_state;
+    enum {RESET_ADDR, READ_OFFSET, GEN_ADDR, FINISH_AW, CTRL_AW, READ_A, FINISH_A} hbm_addr_state, tmp_hbm_addr_state;
+    
+    reg [5:0] count_wait;
+    reg flag_finish_calc;
+    always_ff @(posedge clk) begin
+        if(~resetn) count_wait <= 0;
+        else begin
+            if(spm_state==WAIT_L) begin
+                if(&count_wait) begin
+                    flag_finish_calc <= 1;
+                    count_wait <= 0;
+                end else begin
+                    count_wait++;
+                    flag_finish_calc <= 0;
+                end
+            end
+        end
+    end
+    always_ff @(posedge clk) begin
+        tmp_resetn <= resetn;
+        tmp_spm_state <= spm_state;
+        case(spm_state)
+            RESET_SPM:begin
+                if(~tmp_resetn & resetn) begin 
+                    spm_state <= INIT_L;
+                    flag_init <= 1;
+                end                
+            end
+            INIT_L: begin
+                if(tmp_spm_state != INIT_L) begin
+                    hbm_addr_state <= READ_OFFSET;
+                end
+                if(flag_last_quater) begin
+                    flag_init <= 0;
+                    spm_state <= flag_init ? INIT_U : WAIT_U;
+                end     
+            end
+            INIT_U: begin
+                if(tmp_spm_state != INIT_U) begin
+                    hbm_addr_state <= READ_OFFSET;
+                end
+                //if(flag_last_quater) begin
+                if(flag_last_rq && flag_last_we && |mesh_data_en) begin
+                    spm_state <= WAIT_L;
+                end
+            end
+            WB_L: begin
+                if(flag_last_quater && flag_last_sg)
+                  spm_state <= FINISH_SPM;
+                else if(flag_last_quater)
+                  spm_state <= RO_L;
+            end
+            WB_U: begin
+                if(flag_last_quater)
+                  spm_state <= RO_U;
+            end
+            RO_L: begin
+                if(flag_finish_bybz)
+                  spm_state <= WAIT_U;
+            end
+            RO_U: begin
+                if(flag_finish_bybz)
+                  spm_state <= WAIT_L;
+            end
+            WAIT_L: begin
+                if(flag_finish_calc)
+                  spm_state <= WB_L;
+            end
+            WAIT_U: begin
+                if(flag_finish_calc)
+                  spm_state <= WB_U;
+            end
+            default: begin
+            end
+        endcase // case (spm_state)
+    end // always_ff @ (posedge clk)
+    
+    assign flag_hbm_rnext = &hbm_rnext;
+    assign flag_last_rq = r_q >= 3;
+    assign flag_last_rblk = blk_id >= BLK_NUM;
+    assign flag_last_we = count_we >= 63;
+    assign flag_last_spm_mesh = count_rnext >= BURST_LEN*6-1;
+    
+    always_ff @(posedge clk) begin
+        if(~resetn) begin
+            count_rnext <= 0;
+            count_we    <= 0;
+            blk_id      <= 0;
+            r_q         <= 0;
+        end else begin
+            if(flag_hbm_rnext) begin
+                count_rnext <= flag_last_spm_mesh ? 0 : count_rnext+1;
+            end
+            if(|mesh_data_en) begin
+                count_we++;
+            end
+            if(flag_last_we) begin
+                blk_id      <= flag_last_rblk ? 0 : blk_id+1;
+            end
+            if(flag_last_rblk & flag_last_we) begin
+                r_q         <= flag_last_rq  ? 0 : r_q+1;
+            end
+
+        end
+    end
+    
+    generate
+        for(port=0; port<PORT_NUM; port++) begin
+            //assign flag_finish_hbm_blk[port] = hbm_rlast[port] && (r_burst_id[port] >= 5);
+            
+            always_comb begin
+                tmp_hbm_rvalid[port] = hbm_rvalid[port];
+                tmp_hbm_rlast[port] = hbm_rlast[port];
+            end
+            
+            always_ff @(posedge clk) begin
+                if(~resetn) begin
+                    hbm_rready[port] <= 0;
+                end 
+                else begin
+                    hbm_rready[port] <= &tmp_hbm_rvalid;
+                end // else: !if(~resetn)
+            end // always_ff @ (posedge clk)
+        end // for (port=0; port<PORT_NUM; port++)
+    endgenerate
+    
+    assign is_aligned = r_burst_id[ 0] == r_burst_id[ 1];
+//                        (j[ 0] == j[ 1] == j[ 2] == j[ 3]
+//                        == j[ 4] == j[ 5] == j[ 6] == j[ 7]
+//                        == j[ 8] == j[ 9] == j[10] == j[11]
+//                        == j[12] == j[13] == j[14] == j[15]
+//                        == j[16] == j[17] == j[18] == j[19]
+//                        == j[20] == j[21] == j[22] == j[23]
+//                        == j[24] == j[25] == j[26] == j[27]
+//                        == j[28] == j[29] == j[30] == j[31]);
+
+    ///////////////////////////////////////////
+    // bit split from hbm data block to mesh //
+    ///////////////////////////////////////////
+
+    reg [5:0]   data_fifo_count[PORT_NUM];
+    reg [383:0] mesh_data[PORT_NUM][2];
+
+    
+    //                    _   _   _   _   _   _   _   _   _   _   _   _   _   _
+    // clk              _| |_| |_| |_| |_| |_| |_| |_| |_| |_| |_| |_| |_| |_| |
+    //                  ________________________________________________________
+    // aligned_data     _|d0_|d1_|u______|d2_|d3_|d4_|d5_|d6_|d7_|d8_|u_________
+    //                    _______         ___________________________
+    // is_aligned       _|       |_______|                           |__________
+    //                  ________________________________________________________
+    // data_fifo_count  _____|1__|2__________|3__|4__|5__|6__|7__|8__|9_____________
+    //                  ____________________________________________
+    // mesh_data        _u___|m0_|m1_|u__|m2_|m3_|u__|m4_|m5_|u__|m6|
+    //                            ___     ___             ___     ___
+    // mesh_data_en     _________|   |___|   |___________|   |___|
+    //
+    
+    always_ff @(posedge clk) begin
+        if (~resetn) begin
+            mesh_data_en[0]          = 0;
+            mesh_data_en[1]          = 0;
+        end
+        else if(flag_hbm_rnext) begin
+            case(count_rnext%3)
+                0: begin
+                    mesh_data_en[0]       = 0;
+                    mesh_data_en[1]       = 0;
+                end
+                1: begin
+                    mesh_data_en[0]       = 1;
+                    mesh_data_en[1]       = 0;
+                end
+                2: begin
+                    mesh_data_en[0]       = 0;
+                    mesh_data_en[1]       = 1;
+                end
+            endcase
+        end // if (is_aligned)
+    end // always_ff @ (posedge clk)
+    
+    generate
+        for(port=0; port<PORT_NUM; port++) begin
+            always_ff @(posedge clk) begin
+                if (~resetn) begin
+                    mesh_data[port][1]             <= 0;
+                    mesh_data[port][0]             <= 0;
+                end
+                else if(flag_hbm_rnext) begin
+                    case(count_rnext%3)
+                        0: begin
+                            mesh_data[port][0][383:128] <= hbm_rdata[port][255:  0];
+                        end
+                        1: begin
+                            mesh_data[port][0][127:  0] <= hbm_rdata[port][255:128];
+                            mesh_data[port][1][255:128] <= hbm_rdata[port][127:  0];
+                        end
+                        2: begin
+                            mesh_data[port][1][127:  0] <= hbm_rdata[port][255:  0];
+                        end
+                    endcase
+                end // if (is_aligned)
+            end // always_ff @ (posedge clk)
+        end // for (port=0; port<32; port++)
+    endgenerate
+
+    ////////////////////////
+    // Accumulate on URAM //
+    ////////////////////////
+
+    //                         _______     _______     _______
+    // mesh_data_en  _________|       |___|       |___|       |
+    //               _________________________________________
+    // mesh_data     _u_______|m0_|m1_|u__|m2_|m3_|u__|m4_|m5_
+    //               ____________________________________________
+    // count_mesh    _________|1__|2______|3__|4______|5__|6_____
+    //               ____________________________________________
+    // spm_addra     __U__|a0_|a1_|a2_____|a3_|a4_|a5_|a6_|a7_|__
+    //               ____________________________________________    
+    // spm_dina      __U__|d0_|d1_|d2_____|d3_|d4_|d5_|d6_|d7_|__
+    //
+
+    wire [3071:0] tmp_dina_spm_in[SPM_NUM];// = dina_spm_in[SPM_NUM][PORT_NUM/SPM_NUM][383:0];
+    
+    genvar spm_id; // 128 = 16*8mesh
+    generate
+        for(spm_id=0; spm_id<SPM_NUM; spm_id++) begin
+            always_ff @(posedge clk) begin
+                if(~resetn) begin
+                    count_mesh <= 0;
+                    ena_spm_in[spm_id] <= 0;
+                    dina_spm_in[spm_id] <= 0;
+                end
+                else begin
+                    if(|mesh_data_en) begin
+                        ena_spm_in[spm_id]    <= 1;
+                        count_mesh++;
+                        addra_spm_in[spm_id]  <= count_mesh; // max 64*40=2560
+                        addra_spm_out[spm_id] <= count_mesh; // max 64*40=2560
+                    end
+                    else begin
+                        ena_spm_in[spm_id]   <= 0;
+                    end // else: !if(mesh_data_en[0])
+                end // else: !if(~resetn)
+            end // always_ff @ (posedge clk)
+        end // for (uram_id=0; uram_id<16; uram_id=uram_id+1)
+    endgenerate
+
+`ifdef XILINX_SIMULATOR
+     always_ff @(posedge clk) begin
+        wea_spm_in[0] <= |mesh_data_en ? 1 : 0;
+        dina_spm_in[0] <= mesh_data_en[0] ? 
+                          {mesh_data[0][0], mesh_data[1][0],
+                           mesh_data[0][0], mesh_data[1][0],
+                           mesh_data[0][0], mesh_data[1][0],
+                           mesh_data[0][0], mesh_data[1][0]} :
+                          mesh_data_en[1] ? 
+                          {mesh_data[0][1], mesh_data[1][1],
+                           mesh_data[0][1], mesh_data[1][1],
+                           mesh_data[0][1], mesh_data[1][1],
+                           mesh_data[0][1], mesh_data[1][1]} : 384'b0;
+     end                
+`else 
+//    genvar q;
+//generate
+//    for(q=0; q<4; q++) begin // 4 = PORT_NUM/(SPM_WIDTH/48Bytes)
+//        int i = q + r_q*4; // 128blk = 
+//        always_ff @(posedge clk) begin
+//                dina_spm_in[i] <= mesh_data_en[0] ? 
+//                                        {mesh_data[0+q*8][0], mesh_data[1+q*8][0],
+//                                         mesh_data[2+q*8][0], mesh_data[3+q*8][0],
+//                                         mesh_data[4+q*8][0], mesh_data[5+q*8][0],
+//                                         mesh_data[6+q*8][0], mesh_data[7+q*8][0]} :
+//                                        mesh_data_en[1] ? 
+//                                       {mesh_data[0+q*8][1], mesh_data[1+q*8][1],
+//                                        mesh_data[2+q*8][1], mesh_data[3+q*8][1],
+//                                        mesh_data[4+q*8][1], mesh_data[5+q*8][1],
+//                                        mesh_data[6+q*8][1], mesh_data[7+q*8][1]} : 384'bx;
+//            end
+//        end
+//endgenerate
+`endif
+
+    
+    //////////////////////////////////////
+    // Generate block location via BRAM //
+    //////////////////////////////////////
+
+    init_blk offset_0
+      (
+       .clka (clk),
+       .addra(addr_offset),
+       .ena  (ena_offset),
+       .douta(dout_offset)
+       );
+    
+    generate
+        for(spm_id=0; spm_id<SPM_NUM; spm_id++) begin :spm
+            spm_uram spm_in_0
+              (
+               .clka_0(clk),
+               .addra_0(addra_spm_in[spm_id]),
+               .ena_0(ena_spm_in[spm_id]),
+               .dina_0(dina_spm_in[spm_id]),
+               .wea_0(wea_spm_in[spm_id]),
+               .clkb_0(clk),
+               .addrb_0(addrb_spm_in[spm_id]),
+               .enb_0(),
+               .doutb_0(doutb_spm_in[spm_id])
+               );
+              
+            spm_uram spm_out_0
+              (
+               .clka_0(clk),
+               .addra_0(addra_spm_out[spm_id]),
+               .ena_0(ena_spm_out[spm_id]),
+               .dina_0(dina_spm_out[spm_id]),
+               .wea_0(),
+               .clkb_0(clk),
+               .addrb_0(addrb_spm_out[spm_id]),
+               .enb_0(),
+               .doutb_0(doutb_spm_out[spm_id])
+               );
+       end
+    endgenerate
+       
+    assign by = by_offset[bz] + by_pointer;
+    assign flag_last_bz = flag_last_by && (bz >= 7);
+    assign flag_last_ar_burst = ar_burst_id >= 5;
+    always_comb begin
+        if(~resetn) begin
+            spm_state = RESET_SPM;
+            hbm_addr_state = RESET_ADDR;
+            hbm_data_state = RESET_DATA;
+            flag_last_by = 0;
+        end 
+        else begin
+            case(spm_state) //WB_L, WB_U, RO_L, RO_U, WAIT_L, WAIT_U, FINISH_SPM
+                INIT_L:begin
+                    flag_last_by = flag_last_ar_burst & &tmp_hbm_arnext & (by_pointer >= param_pointer[bz]-1);   // flag_last_ar_burst & &tmp_hbm_arnext & 
+                end
+                INIT_U: begin
+                    flag_last_by = flag_last_ar_burst & &tmp_hbm_arnext & (by_pointer >= param_pointer[7-bz]-1); // flag_last_ar_burst & &tmp_hbm_arnext & 
+                end
+                WB_L, WB_U, RO_L, RO_U: begin
+                    flag_last_by = 1;
+                end
+//                WAIT_L, WAIT_U, FINISH_SPM: begin
+//                    flag_last_by = 0;
+//                end
+            endcase
+        end
+    end // always_comb
+
+    generate
+        for(port=0; port<PORT_NUM; port++) begin
+            always_ff @(posedge clk) begin
+                if(~resetn) begin
+                    ena_spm_in[port]     <= 0;
+                    addra_spm_in[port]   <= 0;
+                    valid_spm_in[port]   <= 0;
+                    hbm_awvalid[port] <= 0;
+                    hbm_arvalid[port] <= 0;
+                    hbm_wdata[port]   <= 0;
+                    hbm_wvalid[port]  <= 0;
+                    hbm_rdata[port]   <= 0;
+                end
+                else begin
+                    case(hbm_data_state)
+                        WRITE_HBM: begin
+                            if(flag_finish_quater) begin
+                                //w_q++;
+                            end
+                            if(flag_last_quater) begin
+                                ena_spm_in[port]   <= 0;
+                                hbm_data_state  <= FINISH_HBM;
+                            end
+                            else begin
+                                ena_spm_in[port]   <= 1;
+                                addra_spm_in[port] <= piramid_id*32 + separate[bz] + by_pointer;
+                                valid_spm_in[port] <= ena_spm_in[port];
+                                ena_spm_out[port]   <= 1;
+                                addra_spm_out[port] <= piramid_id*32 + separate[bz] + by_pointer;
+                                valid_spm_out[port] <= ena_spm_out[port];
+                            end
+
+                            if(valid_spm_out[port]) begin
+                                hbm_wvalid[port] <= 1;
+                                //hbm_wdata[port]  <= doutb_spm_out[port];
+                            end
+                        end
+                        READ_HBM: begin
+                            if(hbm_rnext[port]) begin
+                                hbm_rdata[port] <= axi3[port].rdata;
+                            end
+                        end
+                    endcase // case (hbm_data_state)
+                end
+            end
+        end
+    endgenerate
+    
+    reg flag_init_rlast;
+    
+    always_ff @(posedge clk) begin
+        if(~resetn) begin
+            valid_dout_offset <= 0;
+            valid_offset <= 0;
+            valid_bxyz <= 0;
+            valid_tmp_raddr <= 0;
+            tmp_hbm_arnext <= 0;
+            count_read_offset <= 0;
+            flag_last_quater <= 0;
+            flag_finish_quater <= 0;
+            ar_q <= 0;
+            bz <= 0;
+            ena_offset <= 0;
+            by_pointer <= 0;
+            flag_init_rlast <= 1;
+            ar_burst_id <= 0;
+        end
+        else begin
+            tmp_hbm_addr_state <= hbm_addr_state;
+            case(hbm_addr_state) 
+                READ_OFFSET: begin
+                    flag_finish_quater <= 0;
+                    if(valid_dout_offset) begin
+                        count_read_offset <= 0;
+                        valid_dout_offset <= 0;
+                        valid_offset <= 1;
+                        by_offset[bz] <= dout_offset;
+                        hbm_addr_state <= GEN_ADDR;
+                    end
+                    else if(~ena_offset) begin
+                        ena_offset <= 1;
+                        addr_offset <= piramid_id*8 + bz;
+                    end 
+                    else begin
+                        valid_dout_offset <= 1; 
+                        ena_offset <= 0;
+                    end
+                end 
+                GEN_ADDR: begin
+                    if(valid_offset) begin
+                        valid_offset <= 0;
+                        valid_bxyz <= 1;
+                        count_read_offset <= 1;
+                    end
+                    if(valid_bxyz) begin //& (hbm_rlast[0]| flag_init_rlast)) begin
+                        flag_init_rlast <= 0;
+                        valid_bxyz <= 0;
+                        valid_tmp_raddr <= 1;
+                    end
+                    
+                    if(&tmp_hbm_arnext) begin
+                        if(flag_last_by & flag_last_bz) begin
+                            valid_tmp_raddr <= 0;
+                            bz <= 0;
+                            by_pointer <= 0;
+                            ar_burst_id <= 0;
+                            if(ar_q >= 3) begin
+                                hbm_addr_state <= FINISH_A;
+                                ar_q <= 0;
+                                flag_last_quater <= 1;
+                            end
+                            else begin
+                                ar_q++;
+                                hbm_addr_state <= READ_OFFSET;
+                                flag_finish_quater <= 1;
+                            end
+                        end
+                        else if(flag_last_by & ~flag_last_bz) begin
+                            valid_tmp_raddr <= 0;
+                            hbm_addr_state <= READ_OFFSET;
+                            ar_burst_id <= 0;
+                            by_pointer <= 0;                    
+                            bz++;
+                        end
+                        else if(flag_last_ar_burst) begin
+                            valid_tmp_raddr <= 0;
+                            valid_offset <= 1;
+                            ar_burst_id <= 0;
+                            by_pointer++;
+                        end
+                        else begin
+                            valid_tmp_raddr <= 1;
+                            ar_burst_id++;
+                        end
+                    end // if (flag_finish_hbm_blk)
+                end
+                FINISH_A: begin
+                    flag_last_quater   <= 0;
+                    flag_finish_quater <= 0;
+                    // flag_last_by <= 0; 
+                end                
+            endcase
+        end
+    end
+    
+    generate
+        for(port=0; port<PORT_NUM; port++) begin
+            assign hbm_arnext[port] = hbm_arvalid[port] & hbm_arready[port];
+            assign hbm_rnext[port]  = hbm_rvalid[port]  & hbm_rready[port];
+            
+            always_comb begin
+                if(hbm_arnext[port]) begin
+                    tmp_hbm_arnext[port] <= 1;
+                end
+            end
+            
+            always_ff @(posedge clk) begin
+                if(~resetn) begin
+                    hbm_arvalid[port] <= 0;
+                    tmp_hbm_port[port]  <= 0;
+                    tmp_hbm_raddr[port] <= 0;
+                    hbm_raddr[port] <= 0;
+                    hbm_waddr[port] <= 0;
+                    bx[port] <= 0;
+                    ar_burst_id[port] <= 0;
+                end
+                else begin
+                    if(hbm_addr_state == GEN_ADDR) begin
+                        if(valid_offset) begin
+                            bx[port]            <= port + ar_q * PORT_NUM;
+                        end
+                        
+                        if(valid_bxyz) begin
+                            // hbm_port = (bx%32 + by%32 + bz%32) % 32;
+                            tmp_hbm_port[port]  <= (bx[port][4:0] + by[4:0] + bz[4:0]) %PORT_NUM; ////////
+                            // hbm_addr = bx + 128*by + 128^2*(bz/32);
+                            tmp_hbm_raddr[port] <= {bz[6:5], by, bx[port]}; // 2 + 7 + 7 = 16bits , 20bits
+                        end
+                        
+                        if(valid_tmp_raddr) begin
+                            hbm_arvalid[port]   <= 1;   /////
+                            if(hbm_arnext[port]) begin
+                                hbm_port[port]    <= tmp_hbm_port[port];
+                                //                NA,  RA13:0,                   BG1,       
+                                //       BA1:0,                   CA5:1,          BG0
+                                hbm_raddr[tmp_hbm_port[port]] 
+                                    //<= 1;
+                                    <= {port[4:0],1'b0,tmp_hbm_raddr[port][15:2],
+                                        ar_burst_id[1],tmp_hbm_raddr[port][1:0],ar_burst_id[2],4'b0,ar_burst_id[0],5'b0}; 
+                            end
+                        end
+                        
+                        if(&tmp_hbm_arnext) begin
+                            tmp_hbm_arnext[port] <= 0;
+                        end
+                        
+                        if(hbm_arnext[port]) 
+                            hbm_arvalid[port] <= 0;
+                        
+                    end
+                end
+            end
+        end
+    endgenerate // always_ff @ (posedge clk)
+
+  
+    ////////////////////////
+    // Control AXI3 Write //
+    ////////////////////////
+    //// AXI3 ////
+`ifdef XILINX_SIMULATOR
+    generate 
+        for(port=0; port<PORT_NUM; port++) begin
+            // Read Address
+            //// in
+            // 1 port 201,326,592 B -- address 29 bits -- burst log(16*256/8) = 9 bits
+            assign axi3[0].araddr  = hbm_raddr[0];
+            assign axi3[0].arvalid = hbm_arvalid[0];
+            assign axi3[0].arburst = 2'b01;
+            assign axi3[0].arlen   = 'b1111;
+            // arsize = log_2(DATA_WIDTH/8); 256/8 = 32 = 2^5;
+            assign axi3[0].arsize  = 'b101;
+            assign axi3[0].arid    = 0;
+            //// out
+            assign hbm_arready[port]      = axi3[0].arready;
+            
+            // Read Data
+            //// out
+            assign hbm_rvalid[port]       = axi3[0].rvalid;
+            assign hbm_rdata[port]        = axi3[0].rdata;
+            assign hbm_rlast[port]        = axi3[0].rlast;
+            assign hbm_rresp[port]        = axi3[0].rresp;
+            //// in
+            assign axi3[0].rready  = hbm_rready[0];
+            assign axi3[0].rid     = 0;
+            
+            //assign hbm_rready[port]  = 1;
+            assign hbm_rnext[port]   = (hbm_rresp[port] == 2'b00) & hbm_rvalid[port] & hbm_rready[port];
+            
+            // Write Address
+            //// in
+            // 1 port 201,326,592 B -- address 29 bits -- burst log(16*256/8) = 9 bits
+            assign axi3[0].awaddr  = hbm_waddr[0];
+            assign axi3[0].awvalid = hbm_awvalid[0];
+            assign axi3[0].awburst = 2'b01;
+            assign axi3[0].awlen   = 16;
+            // awsize = log_2(DATA_WIDTH/8); 256/8 = 32 = 2^5;
+            assign axi3[0].awsize  = 5;
+            assign axi3[0].awid    = 0;
+            //// out
+            assign hbm_awready[port]      = axi3[0].awready;
+            
+            // Write Data
+            //// in
+            assign axi3[0].wvalid  = hbm_wvalid[0];
+            assign axi3[0].wdata   = hbm_wdata[0];
+            assign axi3[0].wlast   = 1;
+            assign axi3[0].wid     = 0;
+            assign axi3[0].wstrb   = {32{'b1}};
+            assign axi3[0].bid     = 0;            
+            assign axi3[0].bready  = 1;
+    
+            //// out
+            assign hbm_wready[port]       = axi3[0].wready;
+            assign hbm_bresp[port]        = axi3[0].bresp;
+
+            assign hbm_bnext[port]   = (hbm_bresp[port] == 2'b00) & hbm_bvalid[port] & hbm_bready[port];
+        end // for (port=0; port<PORT_NUM; port=port+1)
+    endgenerate
+`else
+    generate 
+        for(port=0; port<PORT_NUM; port=port+1) begin
+            // Read Address
+            //// in
+            // 1 port 201,326,592 B -- address 29 bits -- burst log(16*256/8) = 9 bits
+            assign axi3[port].araddr  = hbm_raddr[port];
+            assign axi3[port].arvalid = hbm_arvalid[port];
+            assign axi3[port].arburst = 2'b01;
+            assign axi3[port].arlen   = 'b1111;
+            // arsize = log_2(DATA_WIDTH/8); 256/8 = 32 = 2^5;
+            assign axi3[port].arsize  = 'b101;
+            assign axi3[port].arid    = 0;
+            //// out
+            assign hbm_arready[port]      = axi3[port].arready;
+            
+            // Read Data
+            //// out
+            assign hbm_rvalid[port]       = axi3[port].rvalid;
+            assign hbm_rdata[port]        = axi3[port].rdata;
+            assign hbm_rlast[port]        = axi3[port].rlast;
+            assign hbm_rresp[port]        = axi3[port].rresp;
+            //// in
+            assign axi3[port].rready  = hbm_rready[port];
+            assign axi3[port].rid     = 0;
+
+            //assign hbm_rready[port]  = 1;
+            assign hbm_rnext[port]   = (hbm_rresp[port] == 2'b00) & hbm_rvalid[port] & hbm_rready[port];
+            
+            // Write Address
+            //// in
+            // 1 port 201,326,592 B -- address 29 bits -- burst log(16*256/8) = 9 bits
+            assign axi3[port].awaddr  = hbm_waddr[port];
+            assign axi3[port].awvalid = hbm_awvalid[port];
+            assign axi3[port].awburst = 2'b01;
+            assign axi3[port].awlen   = 16;
+            // awsize = log_2(DATA_WIDTH/8); 256/8 = 32 = 2^5;
+            assign axi3[port].awsize  = 5;
+            assign axi3[port].awid    = 0;
+            //// out
+            assign hbm_awready[port]      = axi3[port].awready;
+            
+            // Write Data
+            //// in
+            assign axi3[port].wvalid  = hbm_wvalid[port];
+            assign axi3[port].wdata   = hbm_wdata[port];
+            assign axi3[port].wlast   = 1;//wlast[port];
+            assign axi3[port].wid     = 0;
+            assign axi3[port].wstrb   = {32{'b1}};
+            assign axi3[port].bid     = 0;            
+            assign axi3[port].bready  = 1;
+
+            //// out
+            assign hbm_wready[port]       = axi3[port].wready;
+            assign hbm_bresp[port]        = axi3[port].bresp;
+
+            assign hbm_bnext[port]   = (hbm_bresp[port] == 2'b00) & hbm_bvalid[port] & hbm_bready[port];
+        end // for (port=0; port<PORT_NUM; port=port+1)
+    endgenerate
+`endif  
+
+`ifdef XILINX_SIMULATOR
+    axi_vip_0 axi_vip_0
+      (
+       .aclk            (clk),
+       .aresetn          (resetn),
+       .s_axi_awid       (axi3[0].awid    ),
+       .s_axi_awaddr     (axi3[0].awaddr  ),   
+       .s_axi_awlen      (axi3[0].awlen   ),   
+       .s_axi_awsize     (axi3[0].awsize  ),   
+       .s_axi_awburst    (axi3[0].awburst ), 
+//       .s_axi_awlock     (0              ),
+//       .s_axi_awcache    (1              ),
+//       .s_axi_awprot     (0              ),
+//       .s_axi_awqos      (0              ), 
+       .s_axi_awvalid    (axi3[0].awvalid ),   
+       .s_axi_awready    (axi3[0].awready ),
+       .s_axi_wid        (axi3[0].wid     ), 
+       .s_axi_wdata      (axi3[0].wdata   ),   
+       .s_axi_wstrb      (axi3[0].wstrb   ),   
+       .s_axi_wlast      (axi3[0].wlast   ),   
+       .s_axi_wvalid     (axi3[0].wvalid  ),   
+       .s_axi_wready     (axi3[0].wready  ),  
+       .s_axi_bid        (axi3[0].bid     ),
+       .s_axi_bresp      (axi3[0].bresp   ),        
+       .s_axi_bvalid     (axi3[0].bvalid  ),   
+       .s_axi_bready     (axi3[0].bready  ), 
+       .s_axi_arid       (axi3[0].arid    ),
+       .s_axi_araddr     (axi3[0].araddr  ),   
+       .s_axi_arlen      (axi3[0].arlen   ),   
+       .s_axi_arsize     (axi3[0].arsize  ),   
+       .s_axi_arburst    (axi3[0].arburst ),
+//       .s_axi_arlock     (0              ),
+//       .s_axi_arcache    (1              ),
+//       .s_axi_arprot     (0              ),
+//       .s_axi_arqos      (0              ),  
+       .s_axi_arvalid    (axi3[0].arvalid ),   
+       .s_axi_arready    (axi3[0].arready ),   
+       .s_axi_rid        (axi3[0].rid     ),
+       .s_axi_rdata      (axi3[0].rdata   ),
+       .s_axi_rresp      (axi3[0].rresp   ),
+       .s_axi_rlast      (axi3[0].rlast   ),
+       .s_axi_rvalid     (axi3[0].rvalid  ),
+       .s_axi_rready     (axi3[0].rready  )
+       );
+
+`else
+    hbm_0 hbm_0_inst 
+      (
+       APB_0_PCLK         (clk            ),
+       APB_0_PRESET_N     (resetn             ),
+       apb_complete_0     (                   ),
+       DRAM_0_STAT_CATTRIP(                   ),
+       DRAM_0_STAT_TEMP   (                   ),
+       HBM_REF_CLK_0      (clk            ),
+       AXI_00_ACLK        (clk            ),
+       AXI_00_ARESET_N    (aresetn_450        ),
+       AXI_00_ARADDR      (axi3[0].araddr     ),
+       AXI_00_ARBURST     (axi3[0].arburst    ),
+       AXI_00_ARID        (axi3[0].arid       ),
+       AXI_00_ARLEN       (axi3[0].arlen      ),
+       AXI_00_ARSIZE      (axi3[0].arsize     ),
+       AXI_00_ARVALID     (axi3[0].arvalid    ),
+       AXI_00_AWADDR      (axi3[0].awaddr     ),
+       AXI_00_AWBURST     (axi3[0].awburst    ),
+       AXI_00_AWID        (axi3[0].awid       ),
+       AXI_00_AWLEN       (axi3[0].awlen      ),
+       AXI_00_AWSIZE      (axi3[0].awsize     ),
+       AXI_00_AWVALID     (axi3[0].awvalid    ),
+       AXI_00_RREADY      (axi3[0].rready     ),
+       AXI_00_BREADY      (axi3[0].bready     ),
+       AXI_00_WDATA       (axi3[0].wdata      ),
+       AXI_00_WLAST       (axi3[0].wlast      ),
+       AXI_00_WSTRB       (axi3[0].wstrb      ),
+       AXI_00_WDATA_PARITY(                   ), 
+       AXI_00_WVALID      (axi3[0].wvalid     ),
+       AXI_00_ARREADY     (axi3[0].arready    ),
+       AXI_00_AWREADY     (axi3[0].awready    ),
+       AXI_00_RDATA_PARITY(                   ), 
+       AXI_00_RDATA       (axi3[0].rdata      ),
+       AXI_00_RID         (axi3[0].rid        ),
+       AXI_00_RLAST       (axi3[0].rlast      ),
+       AXI_00_RRESP       (axi3[0].rresp      ),
+       AXI_00_RVALID      (axi3[0].rvalid     ),
+       AXI_00_WREADY      (axi3[0].wready     ),
+       AXI_00_BID         (axi3[0].bid        ),
+       AXI_00_BRESP       (axi3[0].bresp      ),
+       AXI_00_BVALID      (axi3[0].bvalid     ),
+       AXI_01_ACLK        (clk_450            ),
+       AXI_01_ARESET_N    (aresetn_450        ),
+       AXI_01_ARADDR      (axi3[1].araddr     ),
+       AXI_01_ARBURST     (axi3[1].arburst    ),
+       AXI_01_ARID        (axi3[1].arid       ),
+       AXI_01_ARLEN       (axi3[1].arlen      ),
+       AXI_01_ARSIZE      (axi3[1].arsize     ),
+       AXI_01_ARVALID     (axi3[1].arvalid    ),
+       AXI_01_AWADDR      (axi3[1].awaddr     ),
+       AXI_01_AWBURST     (axi3[1].awburst    ),
+       AXI_01_AWID        (axi3[1].awid       ),
+       AXI_01_AWLEN       (axi3[1].awlen      ),
+       AXI_01_AWSIZE      (axi3[1].awsize     ),
+       AXI_01_AWVALID     (axi3[1].awvalid    ),
+       AXI_01_RREADY      (axi3[1].rready     ),
+       AXI_01_BREADY      (axi3[1].bready     ),
+       AXI_01_WDATA       (axi3[1].wdata      ),
+       AXI_01_WLAST       (axi3[1].wlast      ),
+       AXI_01_WSTRB       (axi3[1].wstrb      ),
+       AXI_01_WDATA_PARITY(                   ), 
+       AXI_01_WVALID      (axi3[1].wvalid     ),
+       AXI_01_ARREADY     (axi3[1].arready    ),
+       AXI_01_AWREADY     (axi3[1].awready    ),
+       AXI_01_RDATA_PARITY(                   ), 
+       AXI_01_RDATA       (axi3[1].rdata      ),
+       AXI_01_RID         (axi3[1].rid        ),
+       AXI_01_RLAST       (axi3[1].rlast      ),
+       AXI_01_RRESP       (axi3[1].rresp      ),
+       AXI_01_RVALID      (axi3[1].rvalid     ),
+       AXI_01_WREADY      (axi3[1].wready     ),
+       AXI_01_BID         (axi3[1].bid        ),
+       AXI_01_BRESP       (axi3[1].bresp      ),
+       AXI_01_BVALID      (axi3[1].bvalid     )
+       );
+`endif
+
+endmodule

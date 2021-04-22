@@ -1,0 +1,137 @@
+
+
+void search_partition(int *array, int col_len, int *partition) {
+    *partition = 0;
+    int gap = NMESH_X_LOCAL + array[0] - array[col_len-1];
+    int max = gap;
+    /* for(int i=0; i<col_len; i++) { */
+    /*     printf("%d ",array[i]); */
+    /* } */
+    for(int i=1; i<col_len; i++) {
+        gap = array[i] - array[i-1];
+        if(max < gap) {
+            *partition = i;
+            max = gap;
+        }
+    }
+    //printf("max %d partition %d \n", max, *partition);
+}
+
+void low_compensation(int* min, int* max, int *array_len) {
+    int len = *max-*min+1;
+    int shift = len-*array_len;
+    if(shift == 0) return;
+
+    int append[len];
+    for(int j=0; j<len; j++) {
+        append[j] = *min + j;
+        //printf("%d ",append[j]);
+    }
+    //printf("\n");
+    
+    memmove(min+shift, min, *array_len*sizeof(int));
+    memmove(min, append, len*sizeof(int));
+    *array_len += shift;
+    // printf("###array_len=%d\n",*array_len);
+}
+   
+void compensation(int*col, int *col_len, int *partition)
+{
+    /* printf("\n"); */
+    /* for(int j=0; j<*col_len; j++) printf("%3d ",col[j]); */
+    /* printf("\n"); */
+    if(*partition == 0) {
+        low_compensation(&col[0], &col[*col_len-1], col_len);
+    } else {
+        int len_upper = *col_len - *partition;
+        low_compensation(&col[*partition], &col[*col_len-1], &len_upper);
+        int len_lower = *partition;
+        low_compensation(&col[0], &col[*partition-1], &len_lower);
+        *col_len = len_upper + len_lower;
+        //printf("upper %d lower %d\n",upper,lower);
+    }
+    /* printf("compensation\n"); */
+//    for(int j=0; j<*col_len; j++) printf("%4d ",col[j]);
+    /* printf("\n"); */
+}
+
+void search_column(int *array, int* column, int layer_size) {
+    int p = 0;
+    for(int i=0; i<NMESH_X_LOCAL; i++) {
+        int count = 0;
+        while(1) {
+            if(array[p]>=(i+1)*NMESH_X_LOCAL) break;
+            if(p >= layer_size) break;
+            p++; count++;
+        }
+        column[i] = count;
+    }
+}
+    
+void make_sandgrass(int* spm_id, int* pointer)
+{
+    for(int layer=0; layer<NMESH_X_LOCAL; layer++) {
+        int layer_size = pointer[layer];
+        int array[NMESH_XY_LOCAL];
+        int low = layer*NMESH_XY_LOCAL;
+        int partition[NMESH_X_LOCAL] = {-1};
+        int col_len[NMESH_X_LOCAL] = {-1};
+        memcpy(array, &spm_id[low], layer_size*sizeof(int));
+        quick_sort(array, 0, layer_size-1);
+        layer_size = array_unique(array, 0, layer_size-1);
+        search_column(array, col_len, layer_size);
+
+        /* printf("\n"); */
+        /* //printf("[%d] ",layer); */
+        /* for(int j=0; j<layer_size; j++) { */
+        /*     //printf("%3d ",array[j]); */
+        /*     printf("+"); */
+        /* } */
+        /* printf("\n"); */
+
+        int p=0;
+        for(int i=0; i<NMESH_X_LOCAL; i++) { // every column
+            int tmp = col_len[i];
+            //printf("[%2d](len%2d) ",i,col_len[i]);
+            
+            if(col_len[i] == 0) {
+                //printf("\n");
+                continue;
+            }
+            if(col_len[i] == 1) {
+                //printf("%d\n",array[p]);
+                p++;
+                continue;
+            }
+
+            int col[NMESH_X_LOCAL];
+            memcpy(col, &array[p], col_len[i]*sizeof(int));
+            search_partition(col, col_len[i], &partition[i]);
+            compensation(col, &col_len[i], &partition[i]);
+            
+            int shift = col_len[i] - tmp;
+            //printf("shift %d\n",shift);
+
+            /* printf("\ncol "); */
+            /* for(int j=0; j<col_len[i]; j++) printf("%2d ",col[j]); */
+            //printf("\n");
+            
+            memmove(&array[p+shift], &array[p], (layer_size-p)*sizeof(int));
+            memmove(&array[p], col, col_len[i]*sizeof(int));
+            layer_size += shift;
+            p += col_len[i];
+        }
+      
+        /* for(int j=0; j<p; j++) { */
+        /*     int ix = array[j]%NMESH_X_LOCAL; */
+        /*     int iy = array[j]/NMESH_X_LOCAL; */
+        /*     printf("%d %d %d\n",ix,iy,layer); */
+        /*     //printf("%3d ",array[j]); */
+        /*     //printf("+"); */
+        /* } */
+        count_mesh_sdgl += layer_size;
+        //printf("\n");
+        //break;
+        pointer[layer] = layer_size;
+    }
+}

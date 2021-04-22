@@ -1,0 +1,136 @@
+//-----------------------------------------------------------------------------
+// Title         : 
+// Project       : smaller_accel
+//-----------------------------------------------------------------------------
+// File          : art_geometric.sv
+// Author        : kazuki  <kazuki@kz-desk>
+// Created       : 25.08.2020
+// Last modified : 25.08.2020
+//-----------------------------------------------------------------------------
+// Description :
+// 
+//-----------------------------------------------------------------------------
+// Copyright (c) 2020 by  This model is the confidential and
+// proprietary property of  and the possession or use of this
+// file requires a written license from .
+//------------------------------------------------------------------------------
+// Modification history :
+// 25.08.2020 : created
+//-----------------------------------------------------------------------------
+
+
+`include "top_package.sv"
+`include "AXIS.sv"
+
+module art_geometric
+  import top_package::*;
+  (
+   input clk_200,
+   input aresetn_200,
+   input reg valid,
+   input structures::ray_info iray, 
+   input structures::geometric g,
+   input structures::angle_info a
+   );
+
+    //art_geometric_state state;    
+    
+    keep_min keep_min_0
+      (
+       .clk(clk_200),
+       .valid(valid),
+       .xr(g.keep_xr), .yr(g.keep_yr), .zr(g.keep_zr),
+       .xyz(xyz)
+       );
+
+    AXIS sub(), add();
+
+    reg [15:0] count;
+    
+    always_ff @(posedge clk_200) begin
+        count <= count + 1;    
+        case (xyz)
+            X: begin
+                sub.a_tdata <= g.keep_xr;
+                sub.b_tdata <= g.current_r;
+                sub.a_tvalid <= 1;
+                sub.b_tvalid <= 1;
+                add.a_tdata <= g.keep_xr;
+                add.b_tdata <= g.step_xr;
+                add.a_tvalid <= 1;
+                add.b_tvalid <= 1;
+                g.current_r <= g.keep_xr;
+            end // case: X
+            Y: begin                
+                sub.a_tdata <= g.keep_yr;
+                sub.b_tdata <= g.current_r;
+                sub.a_tvalid <= 1;
+                sub.b_tvalid <= 1;
+                add.a_tdata <= g.keep_yr;
+                add.b_tdata <= g.step_yr;
+                add.a_tvalid <= 1;
+                add.b_tvalid <= 1;
+                g.current_r <= g.keep_yr;
+            end // case: Y
+            Z: begin
+                sub.a_tdata <= g.keep_zr;
+                sub.b_tdata <= g.current_r;
+                sub.a_tvalid <= 1;
+                sub.b_tvalid <= 1;
+                add.a_tdata <= g.keep_zr;
+                add.b_tdata <= g.step_zr;
+                add.a_tvalid <= 1;
+                add.b_tvalid <= 1;
+                g.current_r <= g.keep_zr;
+            end // case: Z
+            default: begin
+                sub.a_tdata <= 'x;
+                sub.b_tdata <= 'x;
+                sub.a_tvalid <= 0;
+                sub.b_tvalid <= 0;
+                add.a_tdata <= 'x;
+                add.b_tdata <= 'x;
+                add.a_tvalid <= 0;
+                add.b_tvalid <= 0;
+            end
+        endcase // case (xyz)
+    end // always_ff @ (posedge clk_200)
+
+    initial begin
+        sub.a_tvalid = 0;
+        sub.b_tvalid = 0;
+        add.a_tvalid = 0;
+        add.b_tvalid = 0;
+    end        
+        
+    geo_sub geo_sub_0
+      (
+       .aclk(clk_200),
+       .s_axis_a_tdata(sub.a_tdata),
+       .s_axis_a_tready(sub.a_tready),
+       .s_axis_a_tvalid(sub.a_tvalid),
+       .s_axis_b_tdata(sub.b_tdata),
+       .s_axis_b_tready(sub.b_tready),
+       .s_axis_b_tvalid(sub.b_tvalid),
+       .m_axis_result_tdata(sub.r_tdata),
+       .m_axis_result_tvalid(sub.r_tvalid),
+       .m_axis_result_tready(sub.r_tready)
+       );
+
+    geo_add geo_add_0
+      (
+       .aclk(clk_200),
+       .s_axis_a_tdata(add.a_tdata),
+       .s_axis_a_tready(add.a_tready),
+       .s_axis_a_tvalid(add.a_tvalid),
+       .s_axis_b_tdata(add.b_tdata),
+       .s_axis_b_tready(add.b_tready),
+       .s_axis_b_tvalid(add.b_tvalid),
+       .m_axis_result_tdata(add.r_tdata),
+       .m_axis_result_tvalid(add.r_tvalid),
+       .m_axis_result_tready(add.r_tready)
+       );
+
+        
+endmodule // art_geometric
+

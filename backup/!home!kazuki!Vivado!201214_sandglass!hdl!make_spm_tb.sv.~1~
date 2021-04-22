@@ -1,0 +1,44 @@
+`timescale 1ns / 1ps
+//////////////////////////////////////////////////////////////////////////////////
+// Company: 
+// Engineer: 
+// 
+// Create Date: 05/23/2020 03:24:39 PM
+// Design Name: 
+// Module Name: make_spm_tb
+// Project Name: 
+// Target Devices: 
+// Tool Versions: 
+// Description: 
+// 
+// Dependencies: 
+// 
+// Revision:
+// Revision 0.01 - File Created
+// Additional Comments:
+// 
+//////////////////////////////////////////////////////////////////////////////////
+
+`include "axi3.sv";
+
+module make_spm_tb ();
+    
+    reg clk;
+    reg resetn;
+    
+    initial begin
+        clk = 0;
+        resetn = 0;
+    end 
+
+    always #5
+        clk = ~clk;
+    
+    
+    
+    make_spm make_spm_0
+      (
+        .clk(clk),
+        .resetn(resetn)
+      );
+endmodule

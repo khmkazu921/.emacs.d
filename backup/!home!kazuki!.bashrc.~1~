@@ -1,0 +1,142 @@
+case $- in
+    *i*) ;;
+      *) return;;
+esac
+
+HISTCONTROL=ignoreboth
+shopt -s histappend
+HISTSIZE=1000
+HISTFILESIZE=2000
+shopt -s checkwinsize
+
+[ -x /usr/bin/lesspipe ] && eval "$(SHELL=/bin/sh lesspipe)"
+
+if [ -z "${debian_chroot:-}" ] && [ -r /etc/debian_chroot ]; then
+    debian_chroot=$(cat /etc/debian_chroot)
+fi
+
+case "$TERM" in
+    xterm-color|*-256color) color_prompt=yes;;
+esac
+
+if [ -n "$force_color_prompt" ]; then
+    if [ -x /usr/bin/tput ] && tput setaf 1 >&/dev/null; then
+	color_prompt=yes
+    else
+	color_prompt=
+    fi
+fi
+
+# Attribute codes: 
+# 00=none 01=bold 04=underscore 05=blink 07=reverse 08=concealed
+# Text color codes:
+# 30=black 31=red 32=green 33=yellow 34=blue 35=magenta 36=cyan 37=white
+# Background color codes:
+# 40=black 41=red 42=green 43=yellow 44=blue 45=magenta 46=cyan 47=white
+# 文字色;背景色;アンダーライン 01 Bold 04 Uline 03 italic 
+#\d : the date \u : ユーザー名 \h : ホスト名 \W : ディレクトリ名
+#\t : the current time \w : the current working directory
+#\s : the name of the shell #\n : newline
+#\[ : begin a sequence of non-printing characters, for embedding a terminal control sequence into the prompt
+#\] : end a sequence of non-printing characters
+#プロンプト全てに色が付く
+#[root@BlackSun ~]# PS1='\[\e[31m\][\u@\h \W]\$ '
+#ホスト名だけに色を付く
+#[root@BlackSun ~]# PS1='[\u@\[\e[31m\]\h\[\e[0m\] \W]\$ '
+
+PS1='\[\e[31m\]\t\[\e[0m\]@\[\e[34;01m\]\h\[\e[0m\]:\[\e[36;01m\]\w\n\[\e[0m\]$ '
+
+if [ -x /usr/bin/dircolors ]; then
+    test -r ~/.dircolors && eval "$(dircolors -b ~/.dircolors)" || eval "$(dircolors -b)"
+    alias ls='ls --color=auto'
+    alias dir='dir --color=auto'
+    alias vdir='vdir --color=auto'
+    alias grep='grep --color=auto'
+    alias fgrep='fgrep --color=auto'
+    alias egrep='egrep --color=auto'
+fi
+
+alias ll='ls -alF'
+alias la='ls -A'
+alias l='ls -CF'
+
+alias alert='notify-send --urgency=low -i "$([ $? = 0 ] && echo terminal || echo error)" "$(history|tail -n1|sed -e '\''s/^\s*[0-9]\+\s*//;s/[;&|]\s*alert$//'\'')"'
+
+if [ -f ~/.bash_aliases ]; then
+    . ~/.bash_aliases
+fi
+
+if ! shopt -oq posix; then
+  if [ -f /usr/share/bash-completion/bash_completion ]; then
+    . /usr/share/bash-completion/bash_completion
+  elif [ -f /etc/bash_completion ]; then
+    . /etc/bash_completion
+  fi
+fi
+
+
+# vivado
+source /tools/Xilinx/Vivado/2020.1/settings64.sh
+source /tools/Xilinx/Vivado/2019.2/settings64.sh
+#source /tools/Xilinx/Vivado/2017.4/settings64.sh
+#source /tools/Xilinx/Vivado/2016.4/settings64.sh
+#source /tools/Xilinx/SDx/2018.3/settings64.sh
+
+# vitis
+#source /tools/Xilinx/Vitis/2020.1/settings64.sh 
+
+alias xsdk='env SWT_GTK3=0 xsdk'
+function vivado(){
+	 echo "Starting Vivado 2020.1 ..."
+	 cd ~/.Vivado_log
+	 (env SWT_GTK3=0 /tools/Xilinx/Vivado/2020.1/bin/vivado >& /dev/null &)
+	 wait
+	 cd ~
+}
+function vivado2019(){
+	 echo "Starting Vivado 2019.2 ..."
+	 cd ~/.Vivado_log
+	 (env SWT_GTK3=0 /tools/Xilinx/Vivado/2019.2/bin/vivado >& /dev/null &)
+	 wait
+	 cd ~
+}
+
+alias ipmikcu='ipmitool -I lanplus -H 192.168.0.33 -U ADMIN -P ADMIN'
+
+#update
+alias update='sudo apt update; sudo apt upgrade; sudo apt dist-upgrade; sudo apt autoremove'
+
+#intel compiler
+#if [ -d "/tools/Intel/compilers_and_libraries/linux/bin" ] ; then
+#    PATH="/tools/Intel/compilers_and_libraries/linux/bin:$PATH"
+#fi
+#if [ -d "/tools/Intel/bin" ] ; then
+#     PATH="/tools/Intel/bin:$PATH"
+#fi
+#export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:'/tools/Intel/compilers_and_libraries_2019.4.243/linux/tbb/lib/intel64_lin/gcc4.1'
+#source /tools/Intel/bin/compilervars.sh intel64 
+#source /tools/Intel/mkl/bin/mklvars.sh intel64 
+#source /tools/Intel/compilers_and_libraries/linux/bin/compilervars.sh intel64 
+#source /tools/Intel/compilers_and_libraries_2019.4.243/linux/bin/compilervars.sh intel64
+
+#environment-modules
+#source /etc/profile.d/modules.sh 
+
+#emacs
+alias e='emacs -nw'
+
+#terminal
+alias gt='gnome-terminal'
+
+#pgplot
+export PGPLOT_DIR=/usr/local/pgplot
+export PGPLOT_DEV=/xserv
+export LD_LIBRARY_PATH=/usr/local/pgplot
+
+alias style="cd /usr/share/texmf/tex/latex"
+
+#git
+alias gac="git add .; git commit --message '$1'; git log;"
+
+#cmake
+export PATH="/usr/local/bin:$PATH"

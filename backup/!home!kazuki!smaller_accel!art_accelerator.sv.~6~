@@ -1,0 +1,74 @@
+//-----------------------------------------------------------------------------
+// Title         : 
+// Project       : smaller_accel
+//-----------------------------------------------------------------------------
+// File          : art_accelerator.sv
+// Author        : kazuki  <kazuki@kz-desk>
+// Created       : 25.08.2020
+// Last modified : 25.08.2020
+//-----------------------------------------------------------------------------
+// Description :
+// 
+//-----------------------------------------------------------------------------
+// Copyright (c) 2020 by  This model is the confidential and
+// proprietary property of  and the possession or use of this
+// file requires a written license from .
+//------------------------------------------------------------------------------
+// Modification history :
+// 25.08.2020 : created
+//-----------------------------------------------------------------------------
+
+`include "top_package.sv"
+`include "AXIS.sv"
+
+module art_accelerator
+  import top_package::*;
+    import parameters::*;
+    import structures::*;
+  (
+   input clk_200,
+   input aresetn_200
+   );
+    ray_info iray;
+    geometric g;
+    angle_info a;
+    reg valid;
+    reg [15:0] count_ray;
+    reg start_calc;
+    
+    always_ff @(posedge clk_200) begin
+        if(~aresetn_200) begin
+            valid <= 0;
+            count_ray <= 0;
+        end
+        else begin
+            if(start_calc) begin
+                count_ray <= 1;
+                g.off_x <= $shortrealtobits(0.52);
+                g.off_y <= $shortrealtobits(0.51);
+                g.off_z <= $shortrealtobits(0.47);
+                g.xovr <= $shortrealtobits(0.347882);
+                g.yovr <= $shortrealtobits(-0.839861);    
+                g.zovr <= $shortrealtobits(-0.416667);
+            end
+            else
+              count_ray <= (count_ray > 0) ? count_ray + 1 : 0;
+
+            if(count_ray >= INIT_LATENCY+4) begin
+                valid <= 0;
+                count_ray <= 0;
+            end
+            else if(count_ray >= INIT_LATENCY+3) begin
+                valid <= 1;
+            end
+        end            
+    end
+    
+    calc_step calc_step_0(.*);
+
+    art_geometric art_geometric_0
+      (.*);
+
+endmodule // art_accelerator
+
+

@@ -1,0 +1,408 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <assert.h>
+#include <math.h>
+#include <string.h>
+#include <limits.h>
+#include <float.h>
+//#include <omp.h>
+#include "ray_tracing.h"
+
+size_t array_unuque(int* array, size_t size);
+float squ = 0.0;
+
+int main(void){
+    struct run_param *this_run;
+    struct host_diffuse_param *hd_param;
+    this_run = (struct run_param*)malloc(sizeof(struct run_param));
+    assert( this_run );
+    this_run->rank_x  = this_run->rank_y  = this_run->rank_z = 0;
+    this_run->nnode_x = this_run->nnode_y = this_run->nnode_z = 1;
+    hd_param = (struct host_diffuse_param*)malloc(RAY_CONE_NUM*sizeof(struct host_diffuse_param));
+
+    setup_data(this_run);
+    init_hd_param(hd_param);
+    int *corner_id_num;
+    corner_id_num = (int*) malloc(sizeof(int)*8);
+    set_angle_info(hd_param->angle, corner_id_num);
+
+    int *sum, *sumv;
+    long ipix4;
+    for(ipix4=0; ipix4<N_ANG; ipix4 += RAY_CONE_NUM) {
+        zero_set_rmesh(hd_param->rmesh);
+        ray_tracing(ipix4, hd_param, this_run, sum, sumv);
+        
+        float oldsqu = squ;
+        squ = (float) (sum*sum) / RAY_CONE_NUM;
+        squ = fmax(squ,oldsqu);
+        printf("squ [%0.2f] \n", squ);
+        //calc_GH_tot(hd_param->rmesh, hd_param->step_fact);
+    } //ipix4 loop
+    free(this_run);
+    //free(corner_id_num);
+
+    free(hd_param->step_fact); free(hd_param->angle); free(hd_param->rmesh);
+    free(hd_param);
+    return 0;
+}
+
+void calc_diffuse_optical_depth(struct host_diffuse_param *hd_param,
+                                long ipix, int loop_start, int loop_end, struct run_param *t, int *sum, int *sumv)
+{
+    
+    int cur[4 * RAY_CONE_NUM * NMESH_X_LOCAL];
+    int meshnumray[RAY_CONE_NUM];
+    int i;
+    sum=0;
+    sumv = 0;
+    int o = 0;
+   
+    for(i=0; i<RAY_CONE_NUM; i++) {
+        meshnumray[i] = 0;            
+        struct ray_info *iray;
+        iray = (struct ray_info*)malloc(sizeof(struct ray_info));
+        assert(iray);
+        struct ray_face *ray;
+        ray = (struct ray_face*)malloc(sizeof(struct ray_face));
+        assert(ray);
+        struct geometric_var *g;
+        g = (struct geometric_var*)malloc(sizeof(struct geometric_var));
+            
+        struct angle_info *angle = &hd_param->angle[ipix+i];
+        short base_id = angle->base_id;
+            
+        set_ray_start_position(ray, base_id, t);
+        switch(base_id) {
+        case(0): case(1):
+            *iray = ray->xy[ix]; break;
+        case(2): case(3):
+            *iray = ray->yz[ix]; break;
+        case(4): case(5):
+            *iray = ray->zx[ix]; break;
+        }
+
+        art_initialise(g, iray, &hd_param->angle[ipix+i], t);
+        if ( (g->ix_cur >= NMESH_X_LOCAL) ||
+             (g->iy_cur >= NMESH_Y_LOCAL) ||
+             (g->iz_cur >= NMESH_Z_LOCAL) ||
+             (g->ix_cur < 0) ||
+             (g->iy_cur < 0) ||
+             (g->iz_cur < 0) )
+            continue;
+        //printf("[%d] ", hd_param->angle[ipix+i].base_id);
+        while(1) {
+            int return_val = 0;
+            art_geometric(g, iray, base_id, o, cur);
+            //art_while_inner(iray, t, g, c, hd_param->rmesh);
+            upper_ray_cycle(ix, base_id, iray, t, g, ray, &return_val);
+            meshnumray[i]++;
+            if (return_val) break;
+        } //while loop
+        sum += meshnumray[i];
+        sumv += meshnumray[i] * meshnumray[i];
+        //printf("%d \n", o);
+        free(iray);
+        free_ray_face(ray);
+        free(g);
+        //free(c);
+    } // cone
+
+}
+
+void art_geometric(struct geometric_var *g, struct ray_info *iray, int base_id, int o, int *cur)
+{
+    g->pos = g->ix_cur + NMESH_Z_LOCAL*g->iy_cur + NMESH_X_LOCAL*NMESH_Y_LOCAL*g->iz_cur;
+    cur[o] = g->pos;
+    //printf("%d ", g->pos);
+    if (g->keep_zr <= g->keep_xr && g->keep_zr <= g->keep_yr) {
+        g->rmin = g->keep_zr - g->current_r;
+        g->current_r = g->keep_zr;
+        g->keep_zr += g->step_zr;
+        g->iz_cur += (g->zovr > 0.0e0f) ? 1 : -1;
+    } else if (g->keep_yr <= g->keep_xr && g->keep_yr <= g->keep_zr) {
+        g->rmin = g->keep_yr - g->current_r;
+        g->current_r = g->keep_yr;
+        g->keep_yr += g->step_yr;
+        g->iy_cur += (g->yovr > 0.0e0f) ? 1 : -1;
+    } else if(g->keep_xr <=  g->keep_yr && g->keep_xr <= g->keep_zr) {
+        g->rmin = g->keep_xr - g->current_r;
+        g->current_r = g->keep_xr;
+        g->keep_xr += g->step_xr;
+        g->ix_cur += (g->xovr > 0.0e0f) ? 1 : -1;
+    }
+    //printf(" %d %d %d\n", g->ix_cur , g->iy_cur, g->iz_cur);
+            
+    iray->x = g->start_x + g->current_r * g->xovr;
+    iray->y = g->start_y + g->current_r * g->yovr;
+    iray->z = g->start_z + g->current_r * g->zovr;           
+}
+
+void art_while_inner(struct ray_info *iray, struct run_param *t, struct geometric_var *g,
+                     struct calculation_var *c, struct radiation_mesh *rmesh)
+{
+    c->tau               = rmesh[g->pos].absorptionHI * ( g->rmin * t->lunit );
+    c->etau              = exp(-c->tau);
+    c->etaum1            = -expm1(-c->tau);
+    rmesh[g->pos].IHI   += iray->I_inHI*c->etaum1;
+    rmesh[g->pos].tauHI += c->tau;
+    iray->I_inHI         = iray->I_inHI*c->etau + rmesh[g->pos].source_funcHI*c->etaum1;
+}
+
+void upper_ray_cycle(int ix, short base_id, struct ray_info *iray, struct run_param *t,
+                     struct geometric_var *g, struct ray_face *ray, int *return_val)
+             
+{    
+    if ( (g->ix_cur >= NMESH_X_LOCAL) ||
+         (g->iy_cur >= NMESH_Y_LOCAL) ||
+         (g->iz_cur >= NMESH_Z_LOCAL) ||
+         (g->ix_cur < 0) ||
+         (g->iy_cur < 0) ||
+         (g->iz_cur < 0)) {
+
+        switch(base_id){
+        case(0): case(1): //xy
+            if( (g->iz_cur >= NMESH_Z_LOCAL) || (g->iz_cur < 0) ) {
+                //printf("#0\n");
+                ray->xy[ix] = *iray;
+                break;
+            }
+            if(g->ix_cur >= NMESH_X_LOCAL) {
+                g->start_x -= NMESH_X_LOCAL*t->delta_x;
+                ray_cycle(&ray->yz[ix], iray, &g->ix_cur, 0, 0, t->xmin_local);
+                //printf("#1\n");
+                if(t->rank_x == 0) reset_I(iray);
+            }
+            else if(g->ix_cur < 0) {
+                g->start_x += NMESH_X_LOCAL*t->delta_x;
+                ray_cycle(&ray->yz[ix], iray, &g->ix_cur, NMESH_X_LOCAL-1, 0, t->xmax_local);
+                //printf("#2\n");
+                if(t->rank_x == t->nnode_x-1) reset_I(iray); 
+            }
+            if(g->iy_cur >= NMESH_Y_LOCAL) {
+                g->start_y -= NMESH_Y_LOCAL*t->delta_y;
+                ray_cycle(&ray->zx[ix], iray, &g->iy_cur, 0, 1, t->ymin_local);
+                //printf("#3\n");
+                if(t->rank_y == 0)  reset_I(iray);
+            }
+            else if(g->iy_cur < 0) {
+                g->start_y += NMESH_Y_LOCAL*t->delta_y;
+                ray_cycle(&ray->zx[ix], iray, &g->iy_cur, NMESH_Y_LOCAL-1, 1, t->ymax_local);
+                //printf("#4\n");
+                if(t->rank_y == t->nnode_y-1) reset_I(iray);
+            }
+            //printf("#5\n");
+            break;  //break switch (0)(1)
+        case(2): case(3): //yz
+            if( (g->ix_cur >= NMESH_X_LOCAL) || (g->ix_cur < 0) ) {
+                //printf("#01\n");
+                ray->yz[ix] = *iray;
+                break;
+            }
+            if(g->iy_cur >= NMESH_Y_LOCAL) {
+                g->start_y -= NMESH_Y_LOCAL*t->delta_y;
+                ray_cycle(&ray->zx[ix], iray, &g->iy_cur, 0, 1, t->ymin_local);
+                if(t->rank_y == 0)  reset_I(iray);
+            }
+            else if(g->iy_cur < 0) {
+                g->start_y += NMESH_Y_LOCAL*t->delta_y;
+                ray_cycle(&ray->zx[ix], iray, &g->iy_cur, NMESH_Y_LOCAL-1, 1, t->ymax_local);
+                if(t->rank_y == t->nnode_y-1) reset_I(iray);
+            }
+            if(g->iz_cur >= NMESH_Z_LOCAL) {
+                g->start_z -= NMESH_Z_LOCAL*t->delta_z;
+                //printf("ix %d\n", ix);
+                ray_cycle(&ray->xy[ix], iray, &g->iz_cur, 0, 2, t->zmin_local);
+                if(t->rank_z == 0)  reset_I(iray);
+            }
+            else if(g->iz_cur < 0) {
+                g->start_z += NMESH_Z_LOCAL*t->delta_z;
+                ray_cycle(&ray->xy[ix], iray, &g->iz_cur, NMESH_Z_LOCAL-1, 2, t->zmax_local);
+                if(t->rank_z == t->nnode_z-1) reset_I(iray);
+            }
+            break;  //break switch (2)(3)
+        case(4): case(5): //zx
+            if( (g->iy_cur >= NMESH_Y_LOCAL) || (g->iy_cur < 0) ) {
+                //printf("#02\n");
+                ray->zx[ix] = *iray;
+                break;
+            }
+            if(g->iz_cur >= NMESH_Z_LOCAL) {
+                g->start_z -= NMESH_Z_LOCAL*t->delta_z;
+                ray_cycle(&ray->xy[ix], iray, &g->iz_cur, 0, 2, t->zmin_local);
+                if(t->rank_z == 0)  reset_I(iray);
+            }
+            else if(g->iz_cur < 0) {
+                g->start_z += NMESH_Z_LOCAL*t->delta_z;
+               ray_cycle(&ray->xy[ix], iray, &g->iz_cur, NMESH_Z_LOCAL-1, 2, t->zmax_local);
+                if(t->rank_z == t->nnode_z-1) reset_I(iray);
+            }
+            if(g->ix_cur >= NMESH_X_LOCAL) {
+                g->start_x -= NMESH_X_LOCAL*t->delta_x;
+                ray_cycle(&ray->yz[ix], iray, &g->ix_cur, 0, 0, t->xmin_local);
+                if(t->rank_x == 0)  reset_I(iray);
+            }	    
+            else if(g->ix_cur < 0) {
+                g->start_x += NMESH_X_LOCAL*t->delta_x;
+                ray_cycle(&ray->yz[ix], iray, &g->ix_cur, NMESH_X_LOCAL-1, 0, t->xmax_local);
+                if(t->rank_x == t->nnode_x-1) reset_I(iray);
+            }      
+            break;  //break switch (4)(5)
+        } // end switch
+        if ( (g->ix_cur >= NMESH_X_LOCAL) ||
+             (g->iy_cur >= NMESH_Y_LOCAL) ||
+             (g->iz_cur >= NMESH_Z_LOCAL) ||
+             (g->ix_cur < 0) ||
+             (g->iy_cur < 0) ||
+             (g->iz_cur < 0)) *return_val = 1;
+    }
+}
+
+void ray_cycle(struct ray_info *ray, struct ray_info *iray, int *cur, int next_cur,int type, float next_pos) {
+    float I_in_tmpHI = ray->I_inHI;
+    *ray = *iray;
+    *cur = next_cur;
+    switch(type) {
+    case(0):
+        iray->x = next_pos;
+        break;
+    case(1):
+        iray->y = next_pos;
+        break;
+    case(2):
+        iray->z = next_pos;
+        break;
+    }
+    iray->I_inHI = I_in_tmpHI;
+}
+
+void reset_I(struct ray_info *ray){
+    ray->I_inHI = 0.0e0;
+}
+
+void ray_tracing(long ipix, struct host_diffuse_param *hd_param,
+		 struct run_param *this_run, int *sum, int *sumv)
+{
+    unsigned int N_face;
+    short base_id = hd_param->angle[ipix].base_id;  
+    switch(base_id){
+    case(0): case(1):
+        N_face = NMESH_XY_LOCAL;
+        break;    
+    case(2): case(3):
+        N_face = NMESH_YZ_LOCAL;
+        break;
+    case(4): case(5):
+        N_face = NMESH_ZX_LOCAL;
+        break;
+    }
+
+    N_face = 1;
+    
+    calc_diffuse_optical_depth(hd_param, ipix, 0, N_face, this_run, sum, sumv);
+}
+    
+void quick_sort(int *arr, int low, int high)
+{
+    if (low < high) {
+        int pi = partition(arr, low, high);
+        quick_sort(arr, low, pi - 1);  // Before pi
+        quick_sort(arr, pi + 1, high); // After pi
+    }
+}
+
+int partition (int *arr, int low, int high)
+{
+    int pivot = arr[high];  
+    int i = (low - 1);  // Index of smaller element
+    for (int j = low; j <= high- 1; j++) {
+        if (arr[j] < pivot) {
+            i++;    // increment index of smaller element
+            swap(arr, i, j);
+        }
+    }
+    swap(arr, i+1, high);
+    return (i + 1);
+}
+
+void swap (int *arr, int i, int j) {
+    int tmp = arr[i];
+    arr[i] = arr[j];
+    arr[j] = tmp;
+}
+
+size_t array_unuque(int* array, size_t size)
+{
+    for (size_t i = 0; i < size - 1; ++i) 
+        for (size_t j = i + 1; j < size; ++j) 
+            if (array[i] == array[j]) {
+                memmove(&array[j], &array[j + 1], sizeof(int) * (size - j - 1));
+                --size; --j;
+            }
+    return size;
+}
+
+void art_initialise(struct geometric_var *g, struct ray_info *iray,
+                    struct angle_info *a, struct run_param *t)
+{
+    float lc_offset_x,lc_offset_y,lc_offset_z; // offset of local block offset
+    float ms_offset_x,ms_offset_y,ms_offset_z; // offset of mesh offset
+    float roffset_x,roffset_y,roffset_z;    
+    g->xovr = a->xovr;
+    g->yovr = a->yovr;
+    g->zovr = a->zovr;
+    
+    g->start_x = iray->x;
+    g->start_y = iray->y;
+    g->start_z = iray->z;
+    
+    lc_offset_x = iray->x - t->xmin_local;
+    lc_offset_y = iray->y - t->ymin_local;
+    lc_offset_z = iray->z - t->zmin_local;
+    //printf("iray %f %f %f\n", iray->x, iray->y, iray->z);
+    //printf("lc_offset %f : %f : %f \n", lc_offset_x, lc_offset_y, lc_offset_z);
+        
+    g->ix_cur = lc_offset_x/t->delta_x;
+    g->iy_cur = lc_offset_y/t->delta_y;
+    g->iz_cur = lc_offset_z/t->delta_z;
+    //printf("ir_cur %d : %d : %d \n", g->ix_cur , g->iy_cur, g->iz_cur);
+
+    //start point is grid point.
+    if( g->xovr < 0.0e0f && g->ix_cur==NMESH_X_LOCAL) --g->ix_cur;
+    if( g->yovr < 0.0e0f && g->iy_cur==NMESH_Y_LOCAL) --g->iy_cur;
+    if( g->zovr < 0.0e0f && g->iz_cur==NMESH_Z_LOCAL) --g->iz_cur;
+    
+    ms_offset_x = lc_offset_x - t->delta_x*(float)g->ix_cur;
+    ms_offset_y = lc_offset_y - t->delta_y*(float)g->iy_cur;
+    ms_offset_z = lc_offset_z - t->delta_z*(float)g->iz_cur;
+    //printf("ms_offset %f : %f : %f \n", ms_offset_x, ms_offset_y, ms_offset_z);
+    
+    g->step_xr = fabsf(t->delta_x / g->xovr); // always+
+    g->step_yr = fabsf(t->delta_y / g->yovr);
+    g->step_zr = fabsf(t->delta_z / g->zovr);
+    
+    //printf("delta %f %f %f\n", delta_x, delta_y, delta_z);
+    //printf("step_r %f  %f  %f \n", g->step_xr, g->step_yr, g->step_zr);
+    
+    // true : false
+    if(g->xovr > 0.0e0f)
+        roffset_x = ms_offset_x / g->xovr;
+    else
+        roffset_x = (ms_offset_x != 0.0) ?  (ms_offset_x - t->delta_x) / g->xovr : 0.0;
+    if(g->yovr > 0.0e0f)
+        roffset_y = ms_offset_y / g->yovr;
+    else
+        roffset_y = (ms_offset_y != 0.0) ?  (ms_offset_y - t->delta_y) / g->yovr : 0.0;
+    if(g->zovr > 0.0e0f)
+        roffset_z = ms_offset_z / g->zovr;
+    else
+        roffset_z = (ms_offset_z != 0.0) ?  (ms_offset_z - t->delta_z) / g->zovr : 0.0;
+    //printf("roffset %f : %f : %f \n", roffset_x, roffset_y, roffset_z);
+    
+    g->keep_xr = -roffset_x + g->step_xr; // always +
+    g->keep_yr = -roffset_y + g->step_yr;
+    g->keep_zr = -roffset_z + g->step_zr;
+    //printf("keep_r %f %f %f\n", keep_xr, keep_yr, keep_zr);
+    g->current_r = 0;
+    
+    //printf("ovr %f %f %f\n",g->xovr,g->yovr,g->zovr);
+}

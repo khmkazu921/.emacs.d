@@ -1,0 +1,7 @@
+set palette maxcolors 3
+set palette model RGB defined ( \
+  0 "red", \
+  1 "blue", \
+  2 "green")
+
+plot 'out' using 1:2:3 with points palette

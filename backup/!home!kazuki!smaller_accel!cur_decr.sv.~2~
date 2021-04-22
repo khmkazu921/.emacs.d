@@ -1,0 +1,50 @@
+//-----------------------------------------------------------------------------
+// Title         : Elementary Operation
+// Project       : smaller_accel
+//-----------------------------------------------------------------------------
+// File          : addsub.sv
+// Author        : kazuki  <kazuki@kz-desk>
+// Created       : 25.08.2020
+// Last modified : 25.08.2020
+//-----------------------------------------------------------------------------
+// Description :
+// 
+//-----------------------------------------------------------------------------
+// Copyright (c) 2020 by  This model is the confidential and
+// proprietary property of  and the possession or use of this
+// file requires a written license from .
+//------------------------------------------------------------------------------
+// Modification history :
+// 25.08.2020 : created
+//-----------------------------------------------------------------------------
+
+module cur_decr
+  (
+   input clk,
+   input resetn,
+   input [31:0] NMESH_XYZ_LOCAL,
+   input xyz_ovr_31,
+   input [31:0] xyz_cur,
+   output reg [31:0] cur_rlt
+   );
+
+    reg comp1, comp2;
+    reg [31:0] p_xyz_cur;
+    reg [31:0] p_cur_rlt[2];
+    always_ff @(posedge clk) begin
+        if(~resetn) begin
+            comp1 <= 0;
+            comp2 <= 0;
+            cur_rlt <= 0;
+        end else begin
+            p_xyz_cur <= xyz_cur;
+            comp1 <= ~xyz_ovr_31;
+            comp2 <= (xyz_cur >= NMESH_XYZ_LOCAL) ? 1 : 0;
+            p_cur_rlt[0] <= (comp1 & comp2) ? p_xyz_cur-1 : p_xyz_cur;
+p_cur_rlt[1] <= p_cur_rlt[0];
+cur_rlt <= p_cur_rlt[1];
+        end
+    end // always_ff @ (posedge clk)
+    
+endmodule
+       

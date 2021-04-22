@@ -1,0 +1,57 @@
+#include <iostream>
+#include <fstream>
+
+#define N_LAYER (10)
+#define N_MESHX (8)
+#define N_MESHY (8)
+#define N_MESHXY (N_MESHX*N_MESHY)
+#define PRINT_ARRAY(array) for(size_t i=0; i<(int)sizeof(array); i++) cout << *array[i] << " "; cout << endl;
+
+using namespace std;
+
+struct tracked_mesh {
+    int ilayer, ichunk, margin;
+    float op_path_len;
+};
+
+struct ray {
+    struct tracked_mesh* track;
+};
+
+struct mesh_chunk {
+    int length, lowest, pointer;
+};
+
+struct spm_layer {
+    struct mesh_chunk* chunk;
+};
+
+struct scratchpad_memory {
+    struct spm_layer* layer;
+};
+
+int main() {
+    ifstream file("./out");
+    string line;
+
+    while (getline(file, line, '\n')){
+       
+        cout << endl;
+    }
+    
+    int layer_size[N_LAYER] = {25, 16, 9, 4, 1, 1, 4, 9, 16, 25};
+    int spm_size = 0;
+    struct scratchpad_memory *spm = new scratchpad_memory;
+    struct spm_layer *layer = new spm_layer[N_LAYER];
+    spm->layer = layer;
+    for(int i=0; i<N_LAYER; i++) {
+        spm_size += layer_size[i];
+        struct mesh_chunk* chunk = new mesh_chunk[layer_size[i]];
+        layer->chunk = chunk;
+    }
+
+    //delete 
+    delete[] layer;
+    delete spm;
+    return 0;
+}

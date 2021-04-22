@@ -1,0 +1,81 @@
+#include <iostream>
+#include <fstream>
+#include <sstream>
+#include <string>
+
+#define N_LAYER (32)
+#define N_MESHX (32)
+#define N_MESHY (32)
+#define N_MESHXY (N_MESHX*N_MESHY)
+#define PRINT_ARRAY(array) for(size_t i=0; i<(int)sizeof(array); i++) cout << *array[i] << " "; cout << endl;
+
+using namespace std;
+
+struct tracked_mesh {
+    int ilayer, ichunk, margin;
+    float op_path_len;
+};
+
+struct ray {
+    struct tracked_mesh* track;
+};
+
+struct mesh_chunk {
+    int length, lowest, pointer;
+};
+
+struct spm_layer {
+    struct mesh_chunk* chunk;
+};
+
+struct scratchpad_memory {
+    struct spm_layer* layer;
+};
+
+int main() {
+    int layer_chunk_size[N_LAYER] = {0};
+    int chunk_size[N_LAYER][N_MESHY] = {0};
+    
+    int a, b, c; ifstream file("./out");
+    while (file >> a >> b >> c) {
+        //printf("%2d %2d %2d\n",a,b,c);
+        chunk_size[c][b]++;
+    }
+    
+    for(int i=0; i<N_LAYER; i++) {
+        for(int j=0; j<N_MESHY; j++) {
+            if(chunk_size[i][j] != 0) {
+                layer_chunk_size[i]++;
+            }
+        }
+    }
+    
+    int spm_size = 0;
+    struct scratchpad_memory *spm = new scratchpad_memory;
+    struct spm_layer *layer = new spm_layer[N_LAYER];
+    spm->layer = layer;
+    for(int i=0; i<N_LAYER; i++) {
+        struct mesh_chunk* chunk = new mesh_chunk[layer_size[i]];
+        for(int j=0; j<layer_chunk_size[i]; j++) {
+            layer[i].chunk[ = chunk;
+                            }
+    }
+
+    // file.close();
+    // file.open("./out");
+    // while (file >> a >> b >> c) {
+    for(auto i: chunk_size) {
+        layer[i]
+    }
+
+    
+    for(int i=0; i<N_LAYER; i++) {
+        layer[i].chunk->length = layer_size[i];
+    }
+    
+
+    //delete 
+    delete[] layer;
+    delete spm;
+    return 0;
+}

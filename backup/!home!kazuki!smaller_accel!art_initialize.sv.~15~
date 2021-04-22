@@ -1,0 +1,319 @@
+//-----------------------------------------------------------------------------
+// Title         : 
+// Project       : smaller_accel
+//-----------------------------------------------------------------------------
+// File          : art_geometric.sv
+// Author        : kazuki  <kazuki@kz-desk>
+// Created       : 25.08.2020
+// Last modified : 25.08.2020
+//-----------------------------------------------------------------------------
+// Description :
+// 
+//-----------------------------------------------------------------------------
+// Copyright (c) 2020 by  This model is the confidential and
+// proprietary property of  and the possession or use of this
+// file requires a written license from .
+//------------------------------------------------------------------------------
+// Modification history :
+// 25.08.2020 : created
+//-----------------------------------------------------------------------------
+
+`include "top_package.sv"
+//`include "AXI3.sv"
+`include "AXIS.sv"
+
+module art_initialize
+  import top_package::*;
+    import parameters::*;
+    import structures::*;
+    (
+     input clk_200,
+     input aresetn_200,
+     ray_info iray,
+     geometric g,
+     angle_info a,
+     output reg start_calc
+     );
+
+    float off_xyz, roff_sub, roff, keep, step;
+    int32 xyz_cur_int;
+    float delta_xyz = 'h3E00_0000;
+    float ms_offset_mul;
+    float p_keep_r[2], p_step_r[15];
+    
+    AXIS sub(), div(), eq(), comp(), mul(), float_int(), int_float();
+    
+    assign g.start_x = iray.x;
+    assign g.start_y = iray.y;
+    assign g.start_z = iray.z;
+
+    float p_y[1], p_z[2];
+    float xyz_ovr, p_xyz_ovr[100];
+    float p_lc_offset[60];
+    float p_yovr[1], p_zovr[2];
+    state_xyz xyz;
+    // input : iray.x xovr
+
+    art_initialize_state state, div_state;
+
+    float xyz_min_local = 'h3F00_0000;
+    reg p_aresetn;
+    reg step_state = 0;
+    
+    // name result
+    always_comb begin
+        case(state)
+            ROFF_DIV: begin
+                roff_sub = sub.r_tdata;
+            end
+            ROFF_OUT: begin
+                roff = div.r_tdata;
+            end
+            KEEP_SUB: begin
+                step = div.r_tdata;
+            end
+            END_0: begin
+                keep = sub.r_tdata;
+            end
+            default: begin
+                roff_sub = 'x;
+                roff = 'x;
+                keep = 'x;
+            end
+        endcase // case (state)
+    end // always_comb
+
+    // make data pipelined
+    always_ff @(posedge clk_200) begin
+        // iray.x iray.y iray.z
+        if(~aresetn_200) begin
+            xyz <= END_XYZ;
+            sub.a_tdata <= 0;
+            sub.b_tdata <= 0;
+        end 
+        else if(aresetn_200 & ~p_aresetn)begin
+            xyz <= X;
+        end
+        p_aresetn <= aresetn_200;
+        case(xyz)
+            X: begin
+                //xyz_min_local <= 0;
+                off_xyz  <= g.off_x;
+                p_y[0]    <= g.off_y;
+                p_z[0]    <= g.off_z;
+                xyz_ovr   <= g.xovr;
+                p_yovr[0] <= g.yovr;
+                p_zovr[0] <= g.zovr;
+                xyz       <= Y;
+            end
+            Y: begin
+                off_xyz  <= p_y[0];
+                p_z[1]    <= p_z[0];
+                xyz_ovr   <= p_yovr[0];
+                p_zovr[1] <= p_zovr[0];
+                xyz       <= Z;
+            end
+            Z: begin
+                off_xyz  <= p_z[1];
+                xyz_ovr   <= p_zovr[1];
+                xyz       <= END_XYZ;
+            end
+            default: begin
+                off_xyz  <= 0;
+                xyz_ovr   <= 0;
+            end
+        endcase // case (xyz)
+        
+        for(integer i=0; i < 100 ;i++) begin
+            p_xyz_ovr[i] <= (i==0) ? xyz_ovr : p_xyz_ovr[i-1];
+//            p_lc_offset[i] <= (i==0) ? lc_offset_xyz : p_lc_offset[i-1];
+//            p_step_r[i] <= (i==0) ? step : p_step_r[i-1];
+        end
+    end // always_ff @ (posedge clk_200)
+    
+    reg [15:0] count;
+
+    // RESET
+    always_ff @ (posedge clk_200) begin
+        if(~aresetn_200) begin
+            step_state = 0;
+            state <= RESET;
+            start_calc <= 0;
+        end
+        else if (aresetn_200 & ~p_aresetn) begin
+            start_calc <= 1;
+        end
+        if(start_calc) begin
+            state <= ROFF_SUB;
+            count <= 0;
+            start_calc <= 0;
+        end
+    end // always_ff @ (posedge clk_200)
+
+    // STEP_R
+    always_ff @ (posedge clk_200) begin
+        case(state)
+            ROFF_SUB: begin
+                if(count >= 2) begin
+                    state <= ROFF_SUB_WAIT;
+                    count <= 0;
+                end
+                else
+                  count <= count + 1;
+                if(off_xyz == 0) begin
+                    sub.a_tdata <= 0;
+                    sub.b_tdata <= 0;
+                end
+                else begin
+                    sub.a_tdata <= off_xyz;
+                    sub.b_tdata <= p_xyz_ovr[60][31] ? delta_xyz : 0;
+                end // ovr < 0 : ovr > 0
+                sub.a_tvalid <= 1;
+                sub.b_tvalid <= 1;
+            end
+            ROFF_SUB_WAIT: begin
+                if(count >= SUB_LATENCY-6) begin                    
+                    state <= STEP_DIV;
+                    count <= 0;
+                end
+                else 
+                  count <= count + 1;
+            end
+            STEP_DIV: begin
+                if(count >= 2) begin
+                    state <= DIV_WAIT;
+                    count <= 0;
+                end
+                else 
+                  count <= count + 1;
+                div.a_tdata <= delta_xyz;
+                div.b_tdata <= {1'b0, p_xyz_ovr[94][30:0]}; // ignore sign
+                div.a_tvalid <= 1;
+                div.b_tvalid <= 1;
+            end
+            DIV_WAIT: begin
+                if(count >= DIV_LATENCY-6) begin
+                    state <= ROFF_OUT;
+                    count <= 0;
+                end
+                else
+                  count <= count + 1;
+            end
+            ROFF_OUT: begin
+                if(count >= 2) begin
+                    state <= KEEP_SUB;
+                    count <= 0;
+                end
+                else
+                  count <= count + 1;
+                div.a_tdata <= roff_sub;
+                div.b_tdata <= p_xyz_ovr[97];
+                div.a_tvalid <= 1;
+                div.b_tvalid <= 1;
+            end
+            KEEP_SUB: begin
+                if(count >= 2) begin
+                    state <= KEEP_SUB_WAIT;
+                    count <= 0;
+                end
+                else 
+                  count <= count+1;
+                sub.a_tdata <= step;
+                sub.b_tdata <= roff;
+                sub.a_tvalid <= 1;
+                sub.b_tvalid <= 1;
+            end
+            KEEP_SUB_WAIT: begin
+                if(count >= SUB_LATENCY-3) begin
+                    state <= END_0;
+                    count <= 0;
+                end
+                else
+                  count <= count + 1;
+            end
+            END_0: begin
+                if(count >= 2) begin
+                    state <= RESET;
+                    g.keep_xr <= p_keep_r[1];
+                    g.keep_yr <= p_keep_r[0];
+                    g.keep_zr <= keep;
+                    g.step_xr <= p_step_r[12];
+                    g.step_yr <= p_step_r[13];
+                    g.step_zr <= p_step_r[14];
+                    g.current_r <= 0;
+                    count <= 0;
+                end
+                else begin
+                    p_keep_r[0] <= keep;
+                    p_keep_r[1] <= p_keep_r[0];
+                    count <= count + 1;
+                end
+        end
+        endcase // case (state)
+    end // always_ff @ (posedge clk_200)
+
+    // float pp_step_r[2];
+    // // R_OFFSET
+    // always_ff @ (posedge clk_200) begin
+    //     if(step_state) begin
+    //         if(step_count < 3) begin
+    //             div.a_tdata <= delta_xyz;
+    //             div.b_tdata <= p_xyz_ovr[94];
+    //             div.a_tvalid <= 1;
+    //             div.b_tvalid <= 1;
+    //         end
+    //         if(step_count > DIV_LATENCY) begin
+    //             pp_step_r[0] <= div.r_tdata;
+    //         end 
+    //         if(step_count > DIV_LATENCY + 5) begin
+    //             pp_step_r[0] <= 'x;
+    //             step_count <= 0;
+    //             step_state <= 0;
+    //         end
+    //         pp_step_r[1] <= pp_step_r[0];
+    //         step_r <= pp_step_r[1];
+    //         step_count <= step_count + 1;
+    //     end // if (div_state == STEP_R_DIV)
+    // end // always_ff @ (posedge clk_200)
+
+
+    initial begin
+        sub.a_tvalid = 0;
+        sub.b_tvalid = 0;
+        div.a_tvalid = 0;
+        div.b_tvalid = 0;
+        comp.a_tvalid = 0;
+        comp.b_tvalid = 0;
+        eq.a_tvalid = 0;
+        eq.b_tvalid = 0;
+        float_int.a_tvalid = 0;
+        mul.a_tvalid = 0;
+        mul.b_tvalid = 0;
+        int_float.a_tvalid = 0;
+    end
+    
+    assign sub.aclk = clk_200;
+    assign sub.aresetn = aresetn_200;
+    assign div.aclk = clk_200;
+    assign mul.aclk = clk_200;
+    assign eq.aclk = clk_200;
+    assign float_int.aclk = clk_200;
+    assign int_float.aclk = clk_200;
+
+    sub sub_0(.axis(sub));
+    float_int_top float_int_0(.axis(float_int));
+    int_float_top int_float_0(.axis(int_float));
+    div div_0(.axis(div));
+    cur_decr cur_decr_0
+      (
+       .clk(clk_200),.resetn(aresetn_200),
+       .NMESH_XYZ_LOCAL(NMESH_X_LOCAL),
+       .xyz_ovr_31(p_xyz_ovr[50][31]),.xyz_cur(xyz_cur_int),
+       .cur_rlt(cur_decr)
+       );
+    comp comp_0(.clk(clk_200),.in(ms_offset_xyz),.out(ms_offset_zero));
+    mul mul_0(.axis(mul));
+    
+endmodule // art_initialize
+
+

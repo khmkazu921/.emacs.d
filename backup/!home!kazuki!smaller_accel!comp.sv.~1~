@@ -1,0 +1,39 @@
+//-----------------------------------------------------------------------------
+// Title         : 
+// Project       : smaller_accel
+//-----------------------------------------------------------------------------
+// File          : art_geometric.sv
+// Author        : kazuki  <kazuki@kz-desk>
+// Created       : 25.08.2020
+// Last modified : 25.08.2020
+//-----------------------------------------------------------------------------
+// Description :
+// 
+//-----------------------------------------------------------------------------
+// Copyright (c) 2020 by  This model is the confidential and
+// proprietary property of  and the possession or use of this
+// file requires a written license from .
+//------------------------------------------------------------------------------
+// Modification history :
+// 25.08.2020 : created
+//-----------------------------------------------------------------------------
+
+`include "top_package.sv"
+
+module comp
+  import structures::*;
+  (
+   input clk,
+   input float in,
+   output reg out
+   );
+
+    always_ff @(posedge clk) begin
+        if(~|in)
+          out <= 1;
+        else
+          out <= 0;
+    end
+   
+endmodule // comp
+

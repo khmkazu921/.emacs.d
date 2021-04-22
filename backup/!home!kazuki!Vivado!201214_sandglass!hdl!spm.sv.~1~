@@ -1,0 +1,15 @@
+module spm 
+
+
+            spm_uram spm_uram_0
+              (
+               .clka_0(clk),
+               .ena_0(spm_ena),
+               .addra_0(spm_addra), //12 depth:2560
+               .dina_0(spm_dina[uram_id]),   //3072
+               .wea_0(),
+               .clkb_0(clk),
+               .enb_0(),
+               .addrb_0(),//12
+               .doutb_0()
+               );

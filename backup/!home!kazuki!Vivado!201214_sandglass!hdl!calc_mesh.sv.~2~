@@ -1,0 +1,218 @@
+//                              -*- Mode: Verilog -*-
+// Filename        : calc_mesh.sv
+// Description     : calculate mesh
+// Author          : kazuki
+// Created On      : Sat Jan 30 14:46:02 2021
+// Last Modified By: kazuki
+// Last Modified On: Sat Jan 30 14:46:02 2021
+// Update Count    : 0
+// Status          : Unknown, Use with caution!
+
+module calc_mesh 
+  #(
+    parameter PORT_NUM = 32,
+    parameter URAM_NUM = 16,
+    parameter PE_NUM   = 128,
+    parameter MESH_PER_URAM = 8,
+    parameter BURST_LEN  = 16,
+    parameter HBM_DATA_WIDTH = 256,
+    parameter DDR_DATA_WIDTH = 512,
+    parameter DDR_ADDR_WIDTH = 34,
+    parameter BLOCK_LEN = 40,
+    parameter LOG_DATA_DEPTH = 12 //log(40block * 64mesh)
+    )
+    (
+     input clk,
+     input resetn,
+     input flag_finish_quater,
+     input reg [1:0] state,
+     input [7:0] a,
+     AXI3 axi3
+     );
+
+    // Control
+    reg start_calc[2];
+ 
+    always_ff @(posedge clk) begin
+        if(~resetn) begin
+            count_angle <= 0 ;
+        end
+        else begin
+            start_calc[1] = start_calc[0];
+            if(start_calc[0] & ~start_calc[1]) begin
+                start_calc[0] <= 1;
+            end
+            else begin
+                start_calc[0] <= 0;
+            end
+        end // else: !if(~resetn)
+    end // always_ff @ (posedge clk)
+    
+    
+    ///////////////////////////////////////////
+    // Read mesh location and optical length //
+    ///////////////////////////////////////////
+
+    wire [19:0] addr_cur_optlen; // log2(1536*512*1.5)
+    wire [49:0] dout_cur_optlen; // 32+3*log2(64)=50
+    wire        ena_cur_optlen;
+    reg         valid_cur_optlen;
+
+    reg  [19:0] count_cur_optlen;
+    reg  [ 3:0] count_loop;
+    wire         next_optlen;
+
+    assign addr_cur_optlen = count_cur_optlen;
+    assign ena_cur_optlen  = start_calc[0] | init_I_finish;
+    assign next_optlen     = count_loop > 8;
+    
+    always_ff @(posedge clk) begin
+        if(~resetn) begin
+            count_loop <= 0;
+            count_cur_optlen <= 0;
+        end
+        else begin
+            count_loop++;
+            valid_cur_optlen <= ena_cur_optlen;
+            if(next_optlen) begin
+                count_cur_optlen++;
+            end
+
+        end
+    end
+    
+    cur_optlen cur_optlen_0
+      (
+       .clka (clk),
+       .addra(addr_cur_optlen),
+       .ena  (ena_cur_optlen),
+       .douta(dout_cur_optlen)
+       );
+
+    wire [5:0] rel_x, rel_y, rel_z;
+    wire [31:0] opt_len;
+
+    assign {rel_x, rel_y, rel_z, opt_len} = dout_cur_optlen;
+
+    //////////////////////////////////////
+    // Read initial intensity from DDR4 //
+    //////////////////////////////////////
+
+    // AXI4
+    AXI4 ddr4_axi4;
+    
+    // Read Address
+    reg                       init_I_arvalid;
+    wire                      init_I_arready;
+    wire [DDR_ADDR_WUDTG-1:0] init_I_araddr;
+    wire                      init_I_arnext;
+
+    // Read Data
+    reg                       init_I_rready;
+    wire                      init_I_rvalid;
+    wire [DDR_DATA_WIDTH-1:0] init_I_rdata;
+    wire                      init_I_rnext;
+
+    // Control
+    reg start_calc[2];
+    reg [7:0] count_angle; // near 128
+    reg [5:0] count_ar_init_I;
+    reg [5:0] count_r_init_I;
+    wire      flag_init_I_finish;
+
+    assign ddr4_axi4.arvalid = init_I_arvalid;
+    assign ddr4_axi4.rready  = init_I_arvalid;
+    assign init_I_arnext = init_I_arvalid & init_I_arready;
+    assign init_I_rnext  = init_I_rvalid  & init_I_rready;
+    assign init_I_finish = &count_r_init_I; // 64
+    assign init_I_rdata  = ddr4_axi4.rdata;
+    
+    always_ff @(posedge clk) begin
+        if(~resetn) begin
+            init_I_arvalid <= 0;
+            start_calc <= 0;
+            count_angle <= 0 ;
+        end
+        else begin
+            start_calc[1] = start_calc[0];
+            if(start_calc[0] & ~start_calc[1]) begin
+                start_calc[0] <= 1;
+            end
+            else begin
+                start_calc[0] <= 0;
+            end
+
+            if(valid_cur_optlen) begin
+                init_I_arvalid <= 1;
+                init_I_araddr <= {angle_id,  rel_y+a,   6'b0,     6'b0};
+                //                                   Burst64, 512b=64B
+                init_I_rready  <= 1;
+            end
+        end
+    end // always_ff @ (posedge clk)
+
+    /////////////////////////////
+    // Store initial Intensity //
+    /////////////////////////////
+
+    reg [511:0] stored_init_I[64];
+
+    always_ff @(posedge clk) begin
+        if(~resetn) begin
+            stored_init_I <= 0;
+        end
+        else begin
+            if(init_I_rnext) begin
+                stored_init_I[count_r_init_I] <= init_I_rdata;
+            end
+        end
+    end
+    
+    ///////////////////////////
+    // Generate spm_addr[][] //
+    ///////////////////////////
+
+    reg [6:0] spm_addr[16][16];
+
+    always_ff @(posedge clk) begin
+        if(~resetn) begin
+            spm_addr <= 0;
+        end
+        else begin
+            if(ena_cur_optlen) begin
+                spm_addr[rel_y>>2][rel_z>>2];
+            end
+        end
+    end
+
+    bram_spm_addr bram_spm_addr_0
+      (
+       .clka (          clk),
+       .addra(addr_spm_addr),
+       .ena  ( ena_spm_addr),
+       .douta(dout_spm_addr)
+       );
+
+    ////////////////////////
+    // Access to URAM SPM //
+    ////////////////////////
+
+    reg [5:0] cur_x[PE_NUM], cur_y, cur_z;
+    wire [3:0] uram_id[PE_NUM]; //16
+
+    always_ff @(posedge clk) begin
+        cur_y <= rel_y + (count_loop >> 2) + a;
+        cur_z <= rel_z;
+    end
+    
+    genvar pe;
+    generate
+        for(pe = 0; pe<128; pe++) begin
+            assign uram_id[pe] = cur_x[pe] >> 6; // cur_x/4/16
+            always_ff @(posedge clk) begin
+                cur_x[pe] <= rel_x + 4*pe + count_loop[1:0];
+            end
+        end
+    endgenerate
+    
+endmodule // calc_mesh
