@@ -398,4 +398,61 @@
  ;; Your init file should contain only one such instance.
  ;; If there is more than one, they won't work right.
  '(minimap-active-region-background ((((background dark)) (:background "gray40")) (t (:background "gray60"))) nil 'minimap)
- '(minimap-current-line-face ((((background dark)) (:background "gray60")) (t (:background "gray80"))) nil 'minimap))
+ '(minimap-current-line-face ((((background dark)) (:background "gray60")) (t (:background "gray80"))) nil 'minimap)
+ )
+
+; '(minimap-active-region-background ((((background dark)) (:background "gray40")) (t (:background "gray60"))) nil (quote minimap))
+; '(minimap-current-line-face ((((background dark)) (:background "gray60")) (t (:background "gray80"))) nil (quote minimap)))
+;(set-face-attribute 'region nil :background "#666")
+;))
+
+;;
+;; neo-tree
+;;
+
+;(require 'neotree)
+;(defun neotree-startup ()
+;  (interactive)
+;  (neotree-show)
+;  (call-interactively 'other-window))
+
+;(if (daemonp)
+;;     (add-hook 'server-switch-hook #'neotree-startup)
+;;   (add-hook 'after-init-hook #'neotree-startup)
+;; )
+;; (use-package neotree
+;; ;;  :init
+;; ;;  (setq-default neo-keymap-style 'concise)
+;;   :config
+;;   (setq neo-smart-open t)
+;;   (setq neo-create-file-auto-open t)
+;;   (setq-default neo-show-hidden-files t)
+;;   (setq neo-theme 'ascii)
+;;   (bind-key [f10] 'neotree-toggle)
+;;   (bind-key "RET" 'neotree-enter-hide neotree-mode-map)
+;;   (bind-key "a" 'neotree-hidden-file-toggle neotree-mode-map)
+;;   (bind-key "<left>" 'neotree-select-up-node neotree-mode-map)
+;;   (bind-key "<right>" 'neotree-change-root neotree-mode-map)
+;;   )
+
+;; (custom-set-variables
+;;  ;; custom-set-variables was added by Custom.
+;;  ;; If you edit it by hand, you could mess it up, so be careful.
+;;  ;; Your init file should contain only one such instance.
+;;  ;; If there is more than one, they won't work right.
+;;  '(package-selected-packages
+;;    '(cuda-mode yatex yasnippet use-package powerline neotree minimap flycheck company)))
+
+;; (custom-set-faces
+;;  '(minimap-active-region-background ((((background dark)) (:background "gray40")) (t (:background "gray60"))) nil 'minimap)
+;;  '(minimap-current-line-face ((((background dark)) (:background "gray60")) (t (:background "gray80"))) nil 'minimap)
+;;  '(mode-line ((t (:background "#000088" :foreground "white"))))
+;;  '(mode-line-inactive ((t (:background "#000022" :foreground "white"))))
+;;  '(powerline-active0 ((t (:background "#7777AA" :foreground "#FFFACD" :weight bold))))
+;;  '(powerline-active1 ((t (:background "#6666CC" :foreground "#fffacd" :weight bold))))
+;;  '(powerline-active2 ((t (:background "midnight blue" :foreground "white" :weight bold))))
+;;  '(powerline-inactive0 ((t (:inherit mode-line-inactive))))
+;;  '(powerline-inactive1 ((t (:inherit mode-line-inactive))))
+;;  '(powerline-inactive2 ((t (:inherit mode-line-inactive)))))
+
+
