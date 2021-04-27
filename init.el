@@ -242,16 +242,20 @@
           ([remap xref-find-definitions] . lsp-ui-peek-find-definitions)
           ([remap xref-find-references] . lsp-ui-peek-find-references))
     :hook
-    ((lsp-mode . lsp-ui-mode)
+    (
+     (lsp-mode . lsp-ui-mode)
      (lsp-managed-mode . (lambda ()
-                           (setq-local company-backends '(company-capf))))
-     (lsp-after-open . (lambda ()
-                         (lsp-ui-flycheck-enable t)
-                         (lsp-ui-sideline-enable t)
-                         (lsp-ui-imenu-enable t)
-                         (lsp-lens-mode t)
-                         (lsp-ui-peek-enable t)
-                         (lsp-ui-doc-enable t))))
+                           (setq-local company-backends '(company-capf))
+                           )
+                       )
+;;      (lsp-after-open . (lambda ()
+;;                          (lsp-ui-flycheck-enable t)
+;;                          (lsp-ui-sideline-enable t)
+;;                          (lsp-ui-imenu-enable t)
+;;                          (lsp-lens-mode t)
+;;                          (lsp-ui-peek-enable t)
+     ;;                          (lsp-ui-doc-enable t)))
+    )
     )
   )
   
@@ -295,7 +299,7 @@
 ;; ;; if you are helm user
 ;; (use-package helm-lsp :commands helm-lsp-workspace-symbol)
 ;; ;; if you are ivy user
-;;(use-package lsp-ivy :commands lsp-ivy-workspace-symbol)
+(use-package lsp-ivy :commands lsp-ivy-workspace-symbol)
 (use-package lsp-treemacs :commands lsp-treemacs-errors-list)
 
 ;; optionally if you want to use debugger
@@ -340,119 +344,62 @@
 ;; minimap-mode
 ;;
 
-;; (if window-system
-;;     (progn
-;;       (require 'minimap)
-;;       (minimap-mode t); 常に有効にする
-;;       (setq minimap-window-location 'right)
-;;       (setq minimap-update-delay 0)
-;;       (setq minimap-minimum-width 20)
-;;       (setq minimap-highlight-line t)
-;;       (setq minimap-width-fraction 0.1
-;;             minimap-dedicated-window t)
-;;       ;; changing colors
-;;       (custom-set-faces
-;;        ;; custom-set-faces was added by Custom.
-;;        ;; If you edit it by hand, you could mess it up, so be careful.
-;;        ;; Your init file should contain only one such instance.
-;;        ;; If there is more than one, they won't work right.
-;;        '(minimap-active-region-background ((((background dark)) (:background "gray40")) (t (:background "gray60"))) nil (quote minimap))
-;;        '(minimap-current-line-face ((((background dark)) (:background "gray60")) (t (:background "gray80"))) nil (quote minimap)))
-;;       (set-face-attribute 'region nil :background "#666")
-;;       )
-;;   )
-
-;; ;;
-;; ;; neo-tree
-;; ;;
-
-;; (require 'neotree)
-;; (defun neotree-startup ()
-;;   (interactive)
-;;   (neotree-show)
-;;   (call-interactively 'other-window))
-
-;; (if (daemonp)
-;;     (add-hook 'server-switch-hook #'neotree-startup)
-;;   (add-hook 'after-init-hook #'neotree-startup)
-;;   )
-
-;; (use-package neotree
-;; ;;  :init
-;; ;;  (setq-default neo-keymap-style 'concise)
-;;   :config
-;;   (setq neo-smart-open t)
-;;   (setq neo-create-file-auto-open t)
-;;   (setq-default neo-show-hidden-files t)
-;;   (setq neo-theme 'ascii)
-;;   (bind-key [f10] 'neotree-toggle)
-;;   (bind-key "RET" 'neotree-enter-hide neotree-mode-map)
-;;   (bind-key "a" 'neotree-hidden-file-toggle neotree-mode-map)
-;;   (bind-key "<left>" 'neotree-select-up-node neotree-mode-map)
-;;   (bind-key "<right>" 'neotree-change-root neotree-mode-map)
-;;   )
-
-(custom-set-faces
- ;; custom-set-faces was added by Custom.
- ;; If you edit it by hand, you could mess it up, so be careful.
- ;; Your init file should contain only one such instance.
- ;; If there is more than one, they won't work right.
- '(minimap-active-region-background ((((background dark)) (:background "gray40")) (t (:background "gray60"))) nil 'minimap)
- '(minimap-current-line-face ((((background dark)) (:background "gray60")) (t (:background "gray80"))) nil 'minimap)
- )
-
-; '(minimap-active-region-background ((((background dark)) (:background "gray40")) (t (:background "gray60"))) nil (quote minimap))
-; '(minimap-current-line-face ((((background dark)) (:background "gray60")) (t (:background "gray80"))) nil (quote minimap)))
-;(set-face-attribute 'region nil :background "#666")
-;))
+(if window-system
+    (progn
+      (require 'minimap)
+      (minimap-mode t); 常に有効にする
+      (setq minimap-window-location 'right)
+      (setq minimap-update-delay 0)
+      (setq minimap-minimum-width 20)
+      (setq minimap-highlight-line t)
+      (setq minimap-width-fraction 0.1
+            minimap-dedicated-window t)
+      ;; changing colors
+      (custom-set-faces
+       ;; custom-set-faces was added by Custom.
+       ;; If you edit it by hand, you could mess it up, so be careful.
+       ;; Your init file should contain only one such instance.
+       ;; If there is more than one, they won't work right.
+       '(minimap-active-region-background ((((background dark)) (:background "gray40")) (t (:background "gray60"))) nil (quote minimap))
+       '(minimap-current-line-face ((((background dark)) (:background "gray60")) (t (:background "gray80"))) nil (quote minimap)))
+      (set-face-attribute 'region nil :background "#666")
+      )
+  )
 
 ;;
 ;; neo-tree
 ;;
 
-;(require 'neotree)
-;(defun neotree-startup ()
-;  (interactive)
-;  (neotree-show)
-;  (call-interactively 'other-window))
+(require 'neotree)
+(defun neotree-startup ()
+  (interactive)
+  (neotree-show)
+  (call-interactively 'other-window))
 
-;(if (daemonp)
-;;     (add-hook 'server-switch-hook #'neotree-startup)
-;;   (add-hook 'after-init-hook #'neotree-startup)
-;; )
-;; (use-package neotree
-;; ;;  :init
-;; ;;  (setq-default neo-keymap-style 'concise)
-;;   :config
-;;   (setq neo-smart-open t)
-;;   (setq neo-create-file-auto-open t)
-;;   (setq-default neo-show-hidden-files t)
-;;   (setq neo-theme 'ascii)
-;;   (bind-key [f10] 'neotree-toggle)
-;;   (bind-key "RET" 'neotree-enter-hide neotree-mode-map)
-;;   (bind-key "a" 'neotree-hidden-file-toggle neotree-mode-map)
-;;   (bind-key "<left>" 'neotree-select-up-node neotree-mode-map)
-;;   (bind-key "<right>" 'neotree-change-root neotree-mode-map)
-;;   )
+(if (daemonp)
+    (add-hook 'server-switch-hook #'neotree-startup)
+  (add-hook 'after-init-hook #'neotree-startup)
+  )
 
-;; (custom-set-variables
-;;  ;; custom-set-variables was added by Custom.
-;;  ;; If you edit it by hand, you could mess it up, so be careful.
-;;  ;; Your init file should contain only one such instance.
-;;  ;; If there is more than one, they won't work right.
-;;  '(package-selected-packages
-;;    '(cuda-mode yatex yasnippet use-package powerline neotree minimap flycheck company)))
+(use-package neotree
+;;  :init
+;;  (setq-default neo-keymap-style 'concise)
+  :config
+  (setq neo-smart-open t)
+  (setq neo-create-file-auto-open t)
+  (setq-default neo-show-hidden-files t)
+  (setq neo-theme 'ascii)
+  (bind-key [f10] 'neotree-toggle)
+  (bind-key "RET" 'neotree-enter-hide neotree-mode-map)
+  (bind-key "a" 'neotree-hidden-file-toggle neotree-mode-map)
+  (bind-key "<left>" 'neotree-select-up-node neotree-mode-map)
+  (bind-key "<right>" 'neotree-change-root neotree-mode-map)
+  )
 
-;; (custom-set-faces
-;;  '(minimap-active-region-background ((((background dark)) (:background "gray40")) (t (:background "gray60"))) nil 'minimap)
-;;  '(minimap-current-line-face ((((background dark)) (:background "gray60")) (t (:background "gray80"))) nil 'minimap)
-;;  '(mode-line ((t (:background "#000088" :foreground "white"))))
-;;  '(mode-line-inactive ((t (:background "#000022" :foreground "white"))))
-;;  '(powerline-active0 ((t (:background "#7777AA" :foreground "#FFFACD" :weight bold))))
-;;  '(powerline-active1 ((t (:background "#6666CC" :foreground "#fffacd" :weight bold))))
-;;  '(powerline-active2 ((t (:background "midnight blue" :foreground "white" :weight bold))))
-;;  '(powerline-inactive0 ((t (:inherit mode-line-inactive))))
-;;  '(powerline-inactive1 ((t (:inherit mode-line-inactive))))
-;;  '(powerline-inactive2 ((t (:inherit mode-line-inactive)))))
-
-
+(custom-set-variables
+ ;; custom-set-variables was added by Custom.
+ ;; If you edit it by hand, you could mess it up, so be careful.
+ ;; Your init file should contain only one such instance.
+ ;; If there is more than one, they won't work right.
+ '(package-selected-packages
+   '(which-key verilog-mode use-package tramp powerline neotree minimap lsp-ui lsp-treemacs imenu-list flycheck company-quickhelp company-flx)))
