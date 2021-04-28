@@ -9,7 +9,7 @@
 ;;
 ;; window
 ;;
-
+(set-face-attribute 'default nil :font "UbuntuMono-12" )
 (setq default-frame-alist '((top . 0) (left . 550) (width . 150) (height . 155)))
 (setq-default indent-tabs-mode nil)
 (menu-bar-mode -1)
@@ -64,15 +64,30 @@
 ;; company
 ;;
 
-;; (require 'company)
-;; (global-company-mode)
-;; (setq company-transformers '(company-sort-by-backend-importance)) 
-;; (setq company-idle-delay 0)
-;; (setq company-minimum-prefix-length 1) 
-;; (setq company-selection-wrap-around t)
-;; (setq completion-ignore-case t)
-;; (setq company-dabbrev-downcase nil)
-;; (define-key company-active-map [tab] 'company-complete-selection)
+(require 'company)
+(global-company-mode)
+(setq company-transformers '(company-sort-by-backend-importance)) 
+(setq company-idle-delay 0)
+(setq company-minimum-prefix-length 1) 
+(setq company-selection-wrap-around t)
+(setq completion-ignore-case t)
+(setq company-dabbrev-downcase nil)
+(define-key company-active-map [tab] 'company-complete-selection)
+
+;;
+;; org mode
+;;
+
+(global-set-key (kbd "C-c l") 'org-store-link)
+(global-set-key (kbd "C-c a") 'org-agenda)
+(global-set-key (kbd "C-c c") 'org-capture)
+(setq org-capture-templates
+      '(;;("c" "* NOTES - %t \n %a \n %i \n")
+        ("t" "Todo" entry (file+headline "~/org/gtd.org" "Tasks")
+         "* TODO %?\n  %i\n  %a")
+        ("j" "Journal" entry (file+datetree "~/org/journal.org")
+         "* %?\nEntered on %U\n  %i\n  %a")))
+
 
 ;;
 ;; yatex
@@ -388,7 +403,7 @@
   (setq neo-smart-open t)
   (setq neo-create-file-auto-open t)
   (setq-default neo-show-hidden-files t)
-  (setq neo-theme 'ascii)
+  (setq neo-theme 'nerd)
   (bind-key [f10] 'neotree-toggle)
   (bind-key "RET" 'neotree-enter-hide neotree-mode-map)
   (bind-key "a" 'neotree-hidden-file-toggle neotree-mode-map)
@@ -396,10 +411,31 @@
   (bind-key "<right>" 'neotree-change-root neotree-mode-map)
   )
 
+
+;;
+;; highlight symbol
+;;
+
+;;; 1秒後自動ハイライトされるようになる
+(setq highlight-symbol-idle-delay 0.1)
+;;; 自動ハイライトをしたいならば
+(add-hook 'prog-mode-hook 'highlight-symbol-mode)
+;;; ソースコードにおいてM-p/M-nでシンボル間を移動
+(add-hook 'prog-mode-hook 'highlight-symbol-nav-mode)
+;;; シンボル置換
+(global-set-key (kbd "M-s M-r") 'highlight-symbol-query-replace)
+
 (custom-set-variables
  ;; custom-set-variables was added by Custom.
  ;; If you edit it by hand, you could mess it up, so be careful.
  ;; Your init file should contain only one such instance.
  ;; If there is more than one, they won't work right.
  '(package-selected-packages
-   '(which-key verilog-mode use-package tramp powerline neotree minimap lsp-ui lsp-treemacs imenu-list flycheck company-quickhelp company-flx)))
+   '(highlight-symbol all-the-icons which-key verilog-mode use-package tramp powerline neotree minimap lsp-ui lsp-treemacs imenu-list flycheck company-quickhelp company-flx)))
+(custom-set-faces
+ ;; custom-set-faces was added by Custom.
+ ;; If you edit it by hand, you could mess it up, so be careful.
+ ;; Your init file should contain only one such instance.
+ ;; If there is more than one, they won't work right.
+ '(minimap-active-region-background ((((background dark)) (:background "gray40")) (t (:background "gray60"))) nil 'minimap)
+ '(minimap-current-line-face ((((background dark)) (:background "gray60")) (t (:background "gray80"))) nil 'minimap))
