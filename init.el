@@ -1,4 +1,4 @@
-(setq debug-on-error t)
+;; (setq debug-on-error t)
 
 (package-initialize)
 (setq package-archives
@@ -10,7 +10,7 @@
 ;; window
 ;;
 (set-face-attribute 'default nil :font "UbuntuMono-12" )
-(setq default-frame-alist '((top . 0) (left . 550) (width . 150) (height . 155)))
+(setq default-frame-alist '((top . 0) (left . 2500) (width . 150) (height . 156)))
 (setq-default indent-tabs-mode nil)
 (menu-bar-mode -1)
 (tool-bar-mode -1)
@@ -81,12 +81,12 @@
 (global-set-key (kbd "C-c l") 'org-store-link)
 (global-set-key (kbd "C-c a") 'org-agenda)
 (global-set-key (kbd "C-c c") 'org-capture)
-(setq org-capture-templates
-      '(;;("c" "* NOTES - %t \n %a \n %i \n")
-        ("t" "Todo" entry (file+headline "~/org/gtd.org" "Tasks")
-         "* TODO %?\n  %i\n  %a")
-        ("j" "Journal" entry (file+datetree "~/org/journal.org")
-         "* %?\nEntered on %U\n  %i\n  %a")))
+;; (setq org-capture-templates
+;;       '(;;("c" "* NOTES - %t \n %a \n %i \n")
+;;         ("t" "Todo" entry (file+headline "~/org/gtd.org" "Tasks")
+;;          "* TODO %?\n  %i\n  %a")
+;;         ("j" "Journal" entry (file+datetree "~/org/journal.org")
+;;          "* %?\nEntered on %U\n  %i\n  %a")))
 
 
 ;;
@@ -98,91 +98,13 @@
 (setq YaTeX-kanji-code nil)
 (setq YaTeX-latex-message-code 'utf-8)
 
-;;
-;; powerline
-;; https://github.com/milkypostman/powerline
-;;
 
-(require 'powerline)
+(use-package doom-modeline
+  :ensure t
+  :init (doom-modeline-mode 1))
+(setq doom-modeline-height 15)
+(setq doom-modeline-bar-width 2)
 
-(setq-default mode-line-format
-      '("%e"
-	(:eval
-	 (let* ((active (powerline-selected-window-active))
-		(mode-line-buffer-id (if active 'mode-line-buffer-id 'mode-line-buffer-id-inactive))
-		(mode-line (if active 'mode-line 'mode-line-inactive))
-		(face0 (if active 'powerline-active0 'powerline-inactive0))
-		(face1 (if active 'powerline-active1 'powerline-inactive1))
-		(face2 (if active 'powerline-active2 'powerline-inactive2))
-		(separator-left (intern (format "powerline-%s-%s"
-						(powerline-current-separator)
-						(car powerline-default-separator-dir))))
-		(separator-right (intern (format "powerline-%s-%s"
-						 (powerline-current-separator)
-						 (cdr powerline-default-separator-dir))))
-		(lhs (list (powerline-raw "%*" face0 'l)
-			   (when powerline-display-buffer-size
-			     (powerline-buffer-size face0 'l))
-			   (when powerline-display-mule-info
-			     (powerline-raw mode-line-mule-info face0 'l))
-			   (powerline-buffer-id `(mode-line-buffer-id ,face0) 'l)
-			   (when (and (boundp 'which-func-mode) which-func-mode)
-			     (powerline-raw which-func-format face0 'l))
-			   (powerline-raw " " face0)
-;			   (funcall separator-left face0 face1)
-;			   (when (and (boundp 'erc-track-minor-mode) erc-track-minor-mode)
-;			     (powerline-raw erc-modified-channels-object face1 'l))
-			   (powerline-major-mode face1 'l)
-			   (powerline-process face1)
-			   (powerline-minor-modes face1 'l)
-			   (powerline-narrow face1 'l)
-			   (powerline-raw " " face1)
-;			   (funcall separator-left face1 face2)
-			   (powerline-vc face2 'r)))
-		(rhs (list (powerline-raw global-mode-string face2 'r)
-;			   (funcall separator-left face2 face1)
-			   (powerline-raw "%3l" face1 'l)
-			   (powerline-raw ":" face1 'l)
-			   (powerline-raw "%3c" face1 'r)
-;			   (funcall separator-left face1 face0)
-			   (powerline-raw " " face0)
-			   (powerline-raw "%2p" face0 'r)
-			   (when powerline-display-hud
-			     (powerline-hud face0 face2))
-			   (powerline-fill face0 0)
-			   )))
-	   (concat (powerline-render lhs)
-		   (powerline-fill face2 (powerline-width rhs))
-		   (powerline-render rhs))))))
-
-(make-face 'powerline-active1)
-(set-face-attribute 'powerline-active0 nil
-                    :foreground "#fffacd"
-		    :background "#7777AA")
-
-(set-face-attribute 'powerline-active1 nil
-                    :foreground "#fffacd"
-                    :background "#6666CC")
-
-(make-face 'powerline-active2)
-(set-face-attribute 'powerline-active2 nil
-                    :foreground "#fffacd"
-                    :background "#000077")
-
-(make-face 'powerline-inactive0)
-(set-face-attribute 'powerline-inactive0 nil
-                    :foreground "#DDDDDD"
-                    :background "#000022")
-
-(make-face 'powerline-inactive1)
-(set-face-attribute 'powerline-inactive1 nil
-                    :foreground "#DDDDDD"
-                    :background "#000044")
-
-(make-face 'powerline-inactive2)
-(set-face-attribute 'powerline-inactive2 nil
-                    :foreground "#DDDDDD"
-                    :background "#000066")
 
 ;;
 ;; use-package
@@ -237,7 +159,8 @@
         lsp-eldoc-render-all nil
         lsp-enable-snippet nil
         lsp-enable-folding t)
-         ; lsp-ui gives us the blue documentation boxes and the sidebar info
+                                        ; lsp-ui gives us the blue documentation boxes and the sidebar info
+  
   (use-package lsp-ui
     :defer t
     :ensure t
@@ -263,17 +186,17 @@
                            (setq-local company-backends '(company-capf))
                            )
                        )
-;;      (lsp-after-open . (lambda ()
-;;                          (lsp-ui-flycheck-enable t)
-;;                          (lsp-ui-sideline-enable t)
-;;                          (lsp-ui-imenu-enable t)
-;;                          (lsp-lens-mode t)
-;;                          (lsp-ui-peek-enable t)
+     ;;      (lsp-after-open . (lambda ()
+     ;;                          (lsp-ui-flycheck-enable t)
+     ;;                          (lsp-ui-sideline-enable t)
+     ;;                          (lsp-ui-imenu-enable t)
+     ;;                          (lsp-lens-mode t)
+     ;;                          (lsp-ui-peek-enable t)
      ;;                          (lsp-ui-doc-enable t)))
-    )
+     )
     )
   )
-  
+
 ;;
 ;; verilog mode
 ;;
@@ -297,13 +220,14 @@
       verilog-indent-level-declaration 4
       verilog-indent-level-behavioral  4
       verilog-case-indent              4
-      verilog-indent-level-directive   1
+      verilog-indent-level-directive   4
       verilog-auto-endcomments         t
       verilog-auto-indent-on-newline   t
       verilog-tab-always-indent        t
       verilog-indent-begin-after-if    t
       verilog-auto-newline             nil
       verilog-auto-lineup              '(all)
+      verilog-align-ifelse             nil
 ;       verilog-tab-always-indent        t
 ;       verilog-auto-endcomments         t
 ;       verilog-minimum-comment-distance 40
@@ -336,12 +260,6 @@
   :ensure t
   :defer t
   :init (global-flycheck-mode t))
-
-;;
-;; lisp-mode
-;;
-
-; (autoload 'lisp-mode "lisp" nil t) 
 
 ;;
 ;; c-mode
@@ -402,7 +320,7 @@
   :config
   (setq neo-smart-open t)
   (setq neo-create-file-auto-open t)
-  (setq-default neo-show-hidden-files t)
+  (setq-default neo-show-hidden-files nil)
   (setq neo-theme 'nerd)
   (bind-key [f10] 'neotree-toggle)
   (bind-key "RET" 'neotree-enter-hide neotree-mode-map)
@@ -413,17 +331,29 @@
 
 
 ;;
+;; grep
+;;
+(global-set-key (kbd "C-x C-g") 'grep)
+(setq grep-use-null-device nil)
+(custom-set-variables
+ '(grep-command "grep --color -rin -e ")
+ '(grep-find-command
+   '("find . -type f -exec grep --color -nH --null -e  \\{\\} +" . 49))
+ '(inhibit-startup-buffer-menu t))
+
+;;
 ;; highlight symbol
 ;;
 
-;;; 1秒後自動ハイライトされるようになる
+(require 'highlight-symbol)
 (setq highlight-symbol-idle-delay 0.1)
-;;; 自動ハイライトをしたいならば
 (add-hook 'prog-mode-hook 'highlight-symbol-mode)
-;;; ソースコードにおいてM-p/M-nでシンボル間を移動
 (add-hook 'prog-mode-hook 'highlight-symbol-nav-mode)
-;;; シンボル置換
 (global-set-key (kbd "M-s M-r") 'highlight-symbol-query-replace)
+(bind-key* [mouse-3] '(lambda (c) (interactive "e") (mouse-set-point c) (highlight-symbol-at-point)))
+(bind-key* [mouse-8] 'mode-line-previous-buffer)
+(bind-key* [mouse-9] 'mode-line-next-buffer)
+(bind-key* "<mode-line> <mouse-1>" '(lambda (c) (interactive "e") (mouse-buffer-menu c)))
 
 (custom-set-variables
  ;; custom-set-variables was added by Custom.

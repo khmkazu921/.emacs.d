@@ -1,3 +1,0 @@
-set palette maxcolors 3
-set palette model RGB defined (0 "red", 1 "red", 2 "green", 3 "green", 4 "blue", 5 "blue")
-splot 'out' using 1:2:3:4 notitle with points palette

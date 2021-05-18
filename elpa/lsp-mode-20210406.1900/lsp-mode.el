@@ -2576,7 +2576,7 @@ and end-of-string meta-characters."
   (let ((map (make-sparse-keymap)))
     (define-key map (kbd "C-<down-mouse-1>") #'lsp-find-definition-mouse)
     (define-key map (kbd "C-<mouse-1>") #'ignore)
-    (define-key map (kbd "<mouse-3>") #'lsp-mouse-click)
+    ;(define-key map (kbd "<mouse-3>") #'lsp-mouse-click)
     (define-key map (kbd "C-S-SPC") #'lsp-signature-activate)
     (when lsp-keymap-prefix
       (define-key map (kbd lsp-keymap-prefix) lsp-command-map))
