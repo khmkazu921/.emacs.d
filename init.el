@@ -9,24 +9,34 @@
 ;;
 ;; window
 ;;
-(set-face-attribute 'default nil :font "UbuntuMono-12" )
+;;"Monospace-12:weight=bold:slant=italic"
+(set-face-attribute 'default nil :font "RobotoMono-10.5:weight=Medium")
 (setq default-frame-alist '((top . 0) (left . 2500) (width . 150) (height . 156)))
 (setq-default indent-tabs-mode nil)
 (menu-bar-mode -1)
 (tool-bar-mode -1)
 (global-linum-mode t)
 (if window-system (progn
-                    (toggle-scroll-bar -1)
-                    (setq linum-format "%3d")
-                    (set-frame-parameter (selected-frame) 'alpha '(100 100))
-                    (add-to-list 'default-frame-alist '(alpha 100 100))))
-
+                  (toggle-scroll-bar -1)
+                  (setq linum-format "%3d")
+                  (set-frame-parameter (selected-frame) 'alpha '(100 100))
+                  (add-to-list 'default-frame-alist '(alpha 100 100))))
 (set-face-foreground 'linum "gray60")
 (load-theme 'wombat t)
 (if (not window-system) (progn
-                          (setq linum-format "%3d ")))
-
+                        (setq linum-format "%3d ")))
 (delete-selection-mode 1)
+
+
+;;
+;; mozc
+;;
+
+(add-to-list 'load-path "/usr/share/emacs/site-lisp/emacs-mozc")
+(load-library "mozc")
+(set-language-environment "Japanese")
+(setq default-input-method "japanese-mozc")
+(set-fontset-font t 'japanese-jisx0208 "TakaoPGothic")
 
 ;;
 ;; auto-mode-alist
@@ -43,11 +53,12 @@
                 ("\\.cc\\'"    . c++-mode)
                 ("\\.cxx\\'"   . c++-mode)
                 ("\\.hh\\'"    . c++-mode)
+                ("\\.cu\\'"    . cuda-mode)
                 ("\\.py\\'"    . python-mode)
                 ("Makefile\\'" . makefile-mode)
                 (".bashrc\\'" . sh-mode)
                 ("\\.sh\\'"   . sh-mode)
-                ("\\.el\\'"  .  lisp-mode))))
+                ("\\.el\\'"  .  lisp-interaction-mode))))
 
 ;;
 ;; backup
@@ -81,30 +92,23 @@
 (global-set-key (kbd "C-c l") 'org-store-link)
 (global-set-key (kbd "C-c a") 'org-agenda)
 (global-set-key (kbd "C-c c") 'org-capture)
-;; (setq org-capture-templates
-;;       '(;;("c" "* NOTES - %t \n %a \n %i \n")
-;;         ("t" "Todo" entry (file+headline "~/org/gtd.org" "Tasks")
-;;          "* TODO %?\n  %i\n  %a")
-;;         ("j" "Journal" entry (file+datetree "~/org/journal.org")
-;;          "* %?\nEntered on %U\n  %i\n  %a")))
-
-
-;;
-;; yatex
-;;
-
-;(autoload 'yatex-mode "yatex" "Yet Another LaTeX mode" t)
-;(setq YaTeX-inhibit-prefix-letter t)
-(setq YaTeX-kanji-code nil)
-(setq YaTeX-latex-message-code 'utf-8)
-
 
 (use-package doom-modeline
   :ensure t
   :init (doom-modeline-mode 1))
-(setq doom-modeline-height 15)
-(setq doom-modeline-bar-width 2)
 
+(setq doom-modeline-height 25)
+(setq doom-modeline-bar-width 4)
+
+(custom-set-faces
+ ;; custom-set-faces was added by Custom.
+ ;; If you edit it by hand, you could mess it up, so be careful.
+ ;; Your init file should contain only one such instance.
+ ;; If there is more than one, they won't work right.
+ '(minimap-active-region-background ((((background dark)) (:background "gray40")) (t (:background "gray60"))) nil 'minimap)
+ '(minimap-current-line-face ((((background dark)) (:background "gray60")) (t (:background "gray80"))) nil 'minimap)
+ '(mode-line ((t (:font "RobotoMono:weight=bold" :height 0.95))))
+ '(mode-line-inactive ((t (:font "RobotoMono:weight=bold" :height 0.95)))))
 
 ;;
 ;; use-package
@@ -159,7 +163,7 @@
         lsp-eldoc-render-all nil
         lsp-enable-snippet nil
         lsp-enable-folding t)
-                                        ; lsp-ui gives us the blue documentation boxes and the sidebar info
+  ; lsp-ui gives us the blue documentation boxes and the sidebar info
   
   (use-package lsp-ui
     :defer t
@@ -186,13 +190,6 @@
                            (setq-local company-backends '(company-capf))
                            )
                        )
-     ;;      (lsp-after-open . (lambda ()
-     ;;                          (lsp-ui-flycheck-enable t)
-     ;;                          (lsp-ui-sideline-enable t)
-     ;;                          (lsp-ui-imenu-enable t)
-     ;;                          (lsp-lens-mode t)
-     ;;                          (lsp-ui-peek-enable t)
-     ;;                          (lsp-ui-doc-enable t)))
      )
     )
   )
@@ -205,33 +202,34 @@
   :defer t
   :config
   (require 'lsp)
-  (lsp-register-client
-   (make-lsp-client :new-connection (lsp-stdio-connection '("svls"))
-   :major-modes '(verilog-mode)
-   :priority -1
-   ))
+  ;; (lsp-register-client
+  ;;  (make-lsp-client :new-connection (lsp-stdio-connection '("svls"))
+  ;;  :major-modes '(verilog-mode)
+  ;;  :priority -1
+  ;;  ))
   :hook (verilog-mode . (lambda()
       (lsp)
       (flycheck-mode t)
       (add-to-list 'lsp-language-id-configuration '(verilog-mode . "verilog")))))
 
-(setq verilog-indent-level             4
-      verilog-indent-level-module      4
-      verilog-indent-level-declaration 4
-      verilog-indent-level-behavioral  4
-      verilog-case-indent              4
-      verilog-indent-level-directive   4
-      verilog-auto-endcomments         t
-      verilog-auto-indent-on-newline   t
-      verilog-tab-always-indent        t
-      verilog-indent-begin-after-if    t
-      verilog-auto-newline             nil
-      verilog-auto-lineup              '(all)
-      verilog-align-ifelse             nil
-;       verilog-tab-always-indent        t
-;       verilog-auto-endcomments         t
-;       verilog-minimum-comment-distance 40
-      )
+
+(setq verilog-align-ifelse                    nil
+      verilog-auto-delete-trailing-whitespace t
+      verilog-auto-inst-param-value           nil
+      verilog-auto-inst-vector                nil
+      verilog-auto-lineup                     (quote all)
+      verilog-auto-newline                    nil
+      verilog-auto-save-policy                nil
+      verilog-auto-template-warn-unused       t
+      verilog-case-indent                     4
+      verilog-cexp-indent                     4 ;; no begin-end
+      verilog-highlight-grouping-keywords     nil
+      verilog-highlight-modules               t
+      verilog-indent-level                    4
+      verilog-indent-level-behavioral         4
+      verilog-indent-level-declaration        4
+      verilog-indent-level-module             4
+      verilog-tab-to-comment                  nil)
 
 ;; ;; optionally
 (use-package lsp-ui :commands lsp-ui-mode)
@@ -256,10 +254,14 @@
 ;; flycheck / verilator
 ;;
 
+(require 'flycheck-grammarly)
+
 (use-package flycheck
   :ensure t
   :defer t
   :init (global-flycheck-mode t))
+
+(add-to-list 'flycheck-checkers 'cuda-nvcc)
 
 ;;
 ;; c-mode
@@ -268,36 +270,108 @@
 (autoload 'c-mode "cc-mode" nil t) 
 (setq-default c-default-style "linux"
               c-basic-offset 4)
+
+(c-set-offset 'case-label 4)
+
 (put 'downcase-region 'disabled nil)
 (eval-after-load 'c-modea (global-set-key (kbd "C-c p") "printf(\"%d\",);") )
 (eval-after-load 'c-modea (global-set-key (kbd "C-c f") "for(int i=0; i<; i++) { }") )
 (add-hook 'c++-mode-hook (lambda () (setq flycheck-gcc-language-standard "c++11")))
 
 ;;
+;; cuda-mode
+;;
+
+
+(setq enable-local-variables :safe)
+
+(setq flycheck-cuda-include-path '("$CUDA_HOME/include" "/usr/local/cuda/samples/common/inc" "."))
+(flycheck-define-checker cuda-nvcc
+  "A CUDA C/C++ syntax checker using nvcc.
+
+See URL `https://developer.nvidia.com/cuda-llvm-compiler'."
+  :command ("/usr/local/cuda/bin/nvcc"
+            "-c" ;; Compile Only
+            "-gencode=arch=compute_80,code=sm_80"
+            "--output-file" "/dev/null" ;; avoid creating output .o
+            "--x=cu" ;; explicitly specify it's a CUDA language file
+            (option "-std=" flycheck-cuda-language-standard concat)
+            (option-list "-include" flycheck-cuda-includes)
+            (option-list "-D" flycheck-cuda-definitions concat)
+            (option-list "-I" flycheck-cuda-include-path)
+            source)
+  :error-patterns
+  ((error line-start
+          (message "In file included from")
+          " " (or "<stdin>" (file-name))
+          ":" line ":" line-end)
+   (error line-start (or "<stdin>" (file-name))
+          "(" line "): error: " (message) line-end)
+   (error line-start (or "<stdin>" (file-name))
+          ":" line ":" column
+          ": fatal error: " (optional (message)) line-end)
+   (warning line-start (or "<stdin>" (file-name))
+            "(" line "): warning: " (message) line-end))
+  :modes cuda-mode)
+
+;; This is a function copied from stackoverflow to facify #if 0/#else/#endif keywords.
+;; The comments are added by myself to make it understandable. 
+(defun my-c-mode-font-lock-if0 (limit)
+  (save-restriction
+    (widen)
+    (save-excursion
+      (goto-char (point-min))
+      (let ((depth 0) str start start-depth)
+	;; Search #if/#else/#endif using regular expression.
+        (while (re-search-forward "^\\s-*#\\s-*\\(if\\|else\\|endif\\)" limit 'move)
+          (setq str (match-string 1))
+	  ;; Handle #if.
+          (if (string= str "if")
+              (progn
+                (setq depth (1+ depth))
+		;; Handle neariest 0.
+                (when (and (null start) (looking-at "\\s-+0"))
+                  (setq start (match-end 0)
+                        start-depth depth)))
+	    ;; Handle #else, here we can decorate #if 0->#else block using 'font-lock-comment-face'.
+            (when (and start (= depth start-depth))
+              (c-put-font-lock-face start (match-beginning 0) 'font-lock-comment-face)
+              (setq start nil))
+	    ;; Handle #endif, return to upper block if possible.
+            (when (string= str "endif")
+              (setq depth (1- depth)))))
+	;; Corner case when there are only #if 0 (May be you are coding now:))
+        (when (and start (> depth 0))
+          (c-put-font-lock-face start (point) 'font-lock-comment-face)))))
+  nil)
+(defun my-c-mode-common-hook ()
+  (font-lock-add-keywords
+   nil
+   '((my-c-mode-font-lock-if0 (0 font-lock-comment-face prepend))) 'add-to-end))
+(add-hook 'c-mode-common-hook 'my-c-mode-common-hook)
+
+;;
 ;; minimap-mode
 ;;
 
-(if window-system
-    (progn
-      (require 'minimap)
-      (minimap-mode t); 常に有効にする
-      (setq minimap-window-location 'right)
-      (setq minimap-update-delay 0)
-      (setq minimap-minimum-width 20)
-      (setq minimap-highlight-line t)
-      (setq minimap-width-fraction 0.1
-            minimap-dedicated-window t)
-      ;; changing colors
-      (custom-set-faces
-       ;; custom-set-faces was added by Custom.
-       ;; If you edit it by hand, you could mess it up, so be careful.
-       ;; Your init file should contain only one such instance.
-       ;; If there is more than one, they won't work right.
-       '(minimap-active-region-background ((((background dark)) (:background "gray40")) (t (:background "gray60"))) nil (quote minimap))
-       '(minimap-current-line-face ((((background dark)) (:background "gray60")) (t (:background "gray80"))) nil (quote minimap)))
-      (set-face-attribute 'region nil :background "#666")
-      )
-  )
+;; (if window-system
+;;     (progn
+;;       (require 'minimap)
+;;       (minimap-mode nil); 常に有効にする
+;;       (setq minimap-window-location 'right)
+;;       (setq minimap-update-delay 0)
+;;       (setq minimap-minimum-width 20)
+;;       (setq minimap-highlight-line t)
+;;       (setq minimap-width-fraction 0.1
+;;             ;;minimap-dedicated-window t
+;;             )
+;;       ;; changing colors
+;;       (custom-set-faces
+;;        '(minimap-active-region-background ((((background dark)) (:background "gray40")) (t (:background "gray60"))) nil (quote minimap))
+;;        '(minimap-current-line-face ((((background dark)) (:background "gray60")) (t (:background "gray80"))) nil (quote minimap)))
+;;       (set-face-attribute 'region nil :background "#666")
+;;       )
+;;   )
 
 ;;
 ;; neo-tree
@@ -310,9 +384,9 @@
   (call-interactively 'other-window))
 
 (if (daemonp)
-    (add-hook 'server-switch-hook #'neotree-startup)
-  (add-hook 'after-init-hook #'neotree-startup)
-  )
+(add-hook 'server-switch-hook #'neotree-startup)
+(add-hook 'after-init-hook #'neotree-startup)
+)
 
 (use-package neotree
 ;;  :init
@@ -327,8 +401,14 @@
   (bind-key "a" 'neotree-hidden-file-toggle neotree-mode-map)
   (bind-key "<left>" 'neotree-select-up-node neotree-mode-map)
   (bind-key "<right>" 'neotree-change-root neotree-mode-map)
-  )
+)
 
+
+;;
+;; yatex
+;; 
+
+(require 'yatex)
 
 ;;
 ;; grep
@@ -336,10 +416,31 @@
 (global-set-key (kbd "C-x C-g") 'grep)
 (setq grep-use-null-device nil)
 (custom-set-variables
+ ;; custom-set-variables was added by Custom.
+ ;; If you edit it by hand, you could mess it up, so be careful.
+ ;; Your init file should contain only one such instance.
+ ;; If there is more than one, they won't work right.
  '(grep-command "grep --color -rin -e ")
  '(grep-find-command
    '("find . -type f -exec grep --color -nH --null -e  \\{\\} +" . 49))
- '(inhibit-startup-buffer-menu t))
+ '(inhibit-startup-buffer-menu t)
+ '(package-selected-packages
+   '(cuda-mode flycheck-grammarly multiple-cursors yatex highlight-symbol all-the-icons which-key verilog-mode use-package tramp powerline neotree minimap lsp-ui lsp-treemacs imenu-list flycheck company-quickhelp company-flx))
+ '(safe-local-variable-values
+   '((eval setq
+           '("$CUDA_HOME" ".")
+           (add-to-list flycheck-cuda-include-path)))))
+
+;;
+;; multiple cursors
+;;
+
+(require 'multiple-cursors)
+(global-unset-key (kbd "M-<down-mouse-1>"))
+(global-unset-key (kbd "M-<mouse-1>"))
+(bind-key* "M-<down-mouse-1>" 'mouse-drag-region)
+(bind-key* "M-<drag-mouse-1>" '(lambda (c) (interactive "e") (mouse-set-region c) (mc/edit-lines)))
+(global-set-key (kbd "M-<mouse-1>") 'mc/add-cursor-on-click)
 
 ;;
 ;; highlight symbol
@@ -353,19 +454,10 @@
 (bind-key* [mouse-3] '(lambda (c) (interactive "e") (mouse-set-point c) (highlight-symbol-at-point)))
 (bind-key* [mouse-8] 'mode-line-previous-buffer)
 (bind-key* [mouse-9] 'mode-line-next-buffer)
-(bind-key* "<mode-line> <mouse-1>" '(lambda (c) (interactive "e") (mouse-buffer-menu c)))
+;(bind-key* "<mode-line> <mouse-1>" '(lambda (c) (interactive "e") (mouse-buffer-menu c)))
+(setq highlight-symbol-colors
+      '("CadetBlue" "OrangeRed" "yellow1" "bisque" "DeepSkyBlue1" "red" "tomato" "violet" "#6262ff" "magenta" 
+        "orange"  "chartreuse1" "gold"  "yellowGreen"  "lightyellow" "DodgerBlue" "greenYellow" "green"
+        "cyan" "IndianRed" "cyan3"  "MediumOrchid" "turquoise1" "brown"  "chocolate"   "salmon" "Skyblue"
+        "snow3" "slateGrey"  "pink" "slateBlue"  "darkGoldenrod" "blueViolet" "OrangeRed3"))
 
-(custom-set-variables
- ;; custom-set-variables was added by Custom.
- ;; If you edit it by hand, you could mess it up, so be careful.
- ;; Your init file should contain only one such instance.
- ;; If there is more than one, they won't work right.
- '(package-selected-packages
-   '(highlight-symbol all-the-icons which-key verilog-mode use-package tramp powerline neotree minimap lsp-ui lsp-treemacs imenu-list flycheck company-quickhelp company-flx)))
-(custom-set-faces
- ;; custom-set-faces was added by Custom.
- ;; If you edit it by hand, you could mess it up, so be careful.
- ;; Your init file should contain only one such instance.
- ;; If there is more than one, they won't work right.
- '(minimap-active-region-background ((((background dark)) (:background "gray40")) (t (:background "gray60"))) nil 'minimap)
- '(minimap-current-line-face ((((background dark)) (:background "gray60")) (t (:background "gray80"))) nil 'minimap))
