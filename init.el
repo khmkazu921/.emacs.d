@@ -13,9 +13,27 @@
 (set-face-attribute 'default nil :font "RobotoMono-10.5:weight=Medium")
 (setq default-frame-alist '((top . 0) (left . 2500) (width . 150) (height . 156)))
 (setq-default indent-tabs-mode nil)
-(menu-bar-mode -1)
+(menu-bar-mode t)
 (tool-bar-mode -1)
+(scroll-bar-mode t)
 (global-linum-mode t)
+;(pixel-scroll-mode t)
+
+(if (not window-system)
+    (progn
+      ;; activate mouse-based scrolling
+      (xterm-mouse-mode 1)
+      (defun mouse-scroll-down() (interactive)(scroll-down 10))
+      (defun mouse-scroll-up()   (interactive)(scroll-up   10))
+      (global-set-key (kbd "<mouse-4>") 'mouse-scroll-down)
+      (global-set-key (kbd "<mouse-5>") 'mouse-scroll-up)
+      )
+  )
+
+;; good scroll mode
+(good-scroll-mode 1)
+(global-set-key [next] #'good-scroll-up-full-screen)
+(global-set-key [prior] #'good-scroll-down-full-screen)
 (if window-system (progn
                   (toggle-scroll-bar -1)
                   (setq linum-format "%3d")
@@ -32,8 +50,9 @@
 ;; mozc
 ;;
 
-(add-to-list 'load-path "/usr/share/emacs/site-lisp/emacs-mozc")
-(load-library "mozc")
+(require 'mozc)
+;(add-to-list 'load-path "/usr/share/emacs/site-lisp/emacs-mozc")                                       
+;(load-library "mozc")
 (set-language-environment "Japanese")
 (setq default-input-method "japanese-mozc")
 (set-fontset-font t 'japanese-jisx0208 "TakaoPGothic")
@@ -43,17 +62,18 @@
 ;;
 
 (setq auto-mode-alist
-      (append '(("\\.tex\\'"   . yatex-mode)
-                ("\\.sty\\'"   . yatex-mode)
+      (append '(("\\.tex\\'"   . tex-mode)
+                ("\\.sty\\'"   . tex-mode)
                 ("\\.v\\'"     . verilog-mode)
                 ("\\.sv\\'"    . verilog-mode)
                 ("\\.c\\'"     . c-mode)
                 ("\\.h\\'"     . c-mode)
                 ("\\.cpp\\'"   . c++-mode)
                 ("\\.cc\\'"    . c++-mode)
-                ("\\.cxx\\'"   . c++-mode)
+                ("\\.hpp\\'"   . c++-mode)
                 ("\\.hh\\'"    . c++-mode)
                 ("\\.cu\\'"    . cuda-mode)
+                ("\\.hcu\\'"   . cuda-mode)
                 ("\\.py\\'"    . python-mode)
                 ("Makefile\\'" . makefile-mode)
                 (".bashrc\\'" . sh-mode)
@@ -410,6 +430,15 @@ See URL `https://developer.nvidia.com/cuda-llvm-compiler'."
 
 (require 'yatex)
 
+;; Tex mode
+(add-hook 'text-mode-hook
+          '(lambda ()
+             (setq indent-tabs-mode nil)
+             (setq tab-width 4)
+             ;; (setq indent-line-function (quote insert-tab))
+             ))
+
+
 ;;
 ;; grep
 ;;
@@ -436,11 +465,15 @@ See URL `https://developer.nvidia.com/cuda-llvm-compiler'."
 ;;
 
 (require 'multiple-cursors)
-(global-unset-key (kbd "M-<down-mouse-1>"))
-(global-unset-key (kbd "M-<mouse-1>"))
-(bind-key* "M-<down-mouse-1>" 'mouse-drag-region)
-(bind-key* "M-<drag-mouse-1>" '(lambda (c) (interactive "e") (mouse-set-region c) (mc/edit-lines)))
-(global-set-key (kbd "M-<mouse-1>") 'mc/add-cursor-on-click)
+(if window-system
+    (progn
+      (global-unset-key (kbd "M-<down-mouse-1>"))
+      (global-unset-key (kbd "M-<mouse-1>"))
+      (bind-key* "M-<down-mouse-1>" 'mouse-drag-region)
+      (bind-key* "M-<drag-mouse-1>" '(lambda (c) (interactive "e") (mouse-set-region c) (mc/edit-lines)))
+      (global-set-key (kbd "M-<mouse-1>") 'mc/add-cursor-on-click)
+      )
+  )
 
 ;;
 ;; highlight symbol
@@ -452,8 +485,13 @@ See URL `https://developer.nvidia.com/cuda-llvm-compiler'."
 (add-hook 'prog-mode-hook 'highlight-symbol-nav-mode)
 (global-set-key (kbd "M-s M-r") 'highlight-symbol-query-replace)
 (bind-key* [mouse-3] '(lambda (c) (interactive "e") (mouse-set-point c) (highlight-symbol-at-point)))
+
+(global-unset-key [C-down-mouse-1])
+(bind-key* [C-mouse-1] '(lambda (c) (interactive "e") (mouse-set-point c) (highlight-symbol-at-point)))
+
 (bind-key* [mouse-8] 'mode-line-previous-buffer)
 (bind-key* [mouse-9] 'mode-line-next-buffer)
+
 ;(bind-key* "<mode-line> <mouse-1>" '(lambda (c) (interactive "e") (mouse-buffer-menu c)))
 (setq highlight-symbol-colors
       '("CadetBlue" "OrangeRed" "yellow1" "bisque" "DeepSkyBlue1" "red" "tomato" "violet" "#6262ff" "magenta" 
