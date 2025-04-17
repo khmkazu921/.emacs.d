@@ -176,19 +176,31 @@
   ;; end of (leaf *q-map)
   )
 
+
+(leaf recentf
+  :require t
+  :custom
+  ((recentf-max-saved-items . 1000)
+   (recentf-auto-cleanup   . 'never))
+  :config
+  (recentf-mode 1)
+  (run-with-idle-timer 30 t 'recentf-save-list))
+
+(leaf recentf-find-file
+  :init
+  (let* ((target-dir (expand-file-name "~/.emacs.d/user_el/"))
+         (target-file (concat target-dir "recentf-find-file.el"))
+         (url "https://gist.githubusercontent.com/s-fubuki/8f8d292683efd52aab18cc182513d068/raw/74639ac4623fbfb93239009048f133ecee51893a/recentf-find-file.el"))
+    (unless (file-exists-p target-file)
+      (make-directory target-dir t)
+      (shell-command (format "curl -L %s -o %s" url target-file))))
+  :load-path "~/.emacs.d/user_el/"
+  :require t
+  :bind (("C-x C-r" . recentf-find-file)))
+
 (leaf *global-settings
   :init
-  (defalias 'yes-or-no-p 'y-or-n-p) ; yes-or-no-pをy/nで選択できるようにする
-  ;; recentf
-  ;;https://gist.githubusercontent.com/s-fubuki/8f8d292683efd52aab18cc182513d068/raw/74639ac4623fbfb93239009048f133ecee51893a/recentf-find-file.el
-  (require 'recentf)
-  (recentf-mode 1)
-  (setq-default recentf-max-saved-items 1000)
-  (setq-default recentf-auto-cleanup 'never)
-  (setq-default recentf-auto-save-timer
-        (run-with-idle-timer 30 t 'recentf-save-list))
-  (require 'recentf-find-file)
-  (global-set-key (kbd "C-x C-r") 'recentf-find-file)
+  (defalias 'yes-or-no-p 'y-or-n-p)
   ;;
   (setq mac-command-key-is-meta t
         mac-command-modifier 'meta)
