@@ -7,15 +7,14 @@
     (setq user-emacs-directory
           (expand-file-name
            (file-name-directory (or load-file-name byte-compile-current-file))))))
-
 (eval-and-compile
   (customize-set-variable
-   'package-archives '(("org" . "https://orgmode.org/elpa/")
-                       ("melpa" . "https://melpa.org/packages/")
-                       ("gnu" . "https://elpa.gnu.org/packages/")
-                       ("melpa-stable" . "https://stable.melpa.org/packages/")
+   'package-archives '(("org"    . "https://orgmode.org/elpa/")
+                       ("melpa"  . "https://melpa.org/packages/")
+                       ("elpa"   . "https://elpa.gnu.org/packages/")
+                       ("stable" . "https://stable.melpa.org/packages/")
                        ("nongnu" . "https://elpa.nongnu.org/nongnu/")
-	               ("tromey" . "http://tromey.com/")))
+	               ("tromey" . "http://tromey.com/elpa/")))
   (package-initialize)
   (unless (package-installed-p 'leaf)
     ;;(package-refresh-contents t)
@@ -42,7 +41,7 @@
 	(eval-print-last-sexp)))
     (load bootstrap-file nil 'nomessage)))
 
-(add-to-list 'load-path "~/.emacs.d/user-el-orig")
+(add-to-list 'load-path "~/.emacs.d/user-el")
 
 ;;
 ;; ido mode
@@ -78,11 +77,17 @@
   (set-face-attribute 'default nil :family "Roboto Mono" :weight 'normal :height 105)
   (set-face-attribute 'italic nil  :family "Roboto Mono Italic" :foundry "pyrs"
                       :underline nil :slant 'italic :height 105 :width 'normal )
-  (leaf doom-modeline :ensure t :require t
-    :hook (after-init-hook . doom-modeline-mode)
-    :custom
-    ((doom-modeline-bar-width . 4)
-     (doom-modeline-height . 25)))
+  ;; (leaf doom-modeline :ensure t :require t
+  ;;   :hook (after-init-hook . doom-modeline-mode)
+  ;;   :custom
+  ;;   ((doom-modeline-bar-width . 4)
+  ;;    (doom-modeline-height . 25)))
+  (leaf mood-line  :ensure t :require t
+    :hook (after-init-hook . mood-line-mode)
+    :custom-face
+    (mode-line . '((t (:box (:line-width (4 . 4) :color "#0f1011")))))
+    :setq-default
+    ((mood-line-glyph-alist . mood-line-glyphs-unicode)))
   (leaf doom-themes :require t :ensure t
     :config
     ;; (load-theme 'doom-solarized-dark-high-contrast t)
@@ -194,7 +199,7 @@
     (unless (file-exists-p target-file)
       (make-directory target-dir t)
       (shell-command (format "curl -L %s -o %s" url target-file))))
-  :load-path "~/.emacs.d/user_el/"
+  :load-path "~/.emacs.d/user-el/"
   :require t
   :bind (("C-x C-r" . recentf-find-file)))
 
@@ -513,57 +518,55 @@
 ;;
 ;; minimap mode
 ;;
-(leaf minimap :ensure nil :require nil
-  :custom
-  ((minimap-window-location . 'right)
-   ;;(minimap-hide-fringe . t)
-   (minimap-update-delay . 0.05)
-   (minimap-minimum-width . 10)
-   (minimap-width-fraction . 0.01)
-   (minimap-enlarge-certain-faces . 'always) )
-  :custom-face
-  (minimap-font-face . '((t (:family "Minimap" :height 10))))
-  :config
-  (define-advice minimap-new-minimap (:after () hide-truncation-indicators)
-    "Hide truncation fringe indicators in the minimap buffer."
-    (with-current-buffer minimap-buffer-name
-      (fringe-mode '(4 . 4))
-      (push '(truncation nil nil) fringe-indicator-alist)))
-  (defun i-minimap-mouse-scroll (event)
-    (interactive "e")
-    (let* ((pointed-buffer (buffer-name (window-buffer (posn-window (event-start event)))))
-           (delta (if (eq (event-basic-type event) 'mouse-4) -1 1)))
-      (if (string-equal pointed-buffer minimap-buffer-name)
-	  (mwheel-scroll event delta))))
-	  ;; (if (eq delta -1) (scroll-down 40) (scroll-up 40))
-  ;;(good-scroll-move (* delta 600)) (mwheel-scroll event delta) )))
-  (global-set-key [mouse-4] #'i-minimap-mouse-scroll)
-  (global-set-key [mouse-5] #'i-minimap-mouse-scroll)
-  (global-set-key [left-fringe mouse-4] #'i-minimap-mouse-scroll)
-  (global-set-key [left-fringe mouse-5] #'i-minimap-mouse-scroll)
-  (global-set-key [right-fringe mouse-4] #'i-minimap-mouse-scroll)
-  (global-set-key [right-fringe mouse-5] #'i-minimap-mouse-scroll))
+;; (leaf minimap :ensure nil :require nil
+;;   :custom
+;;   ((minimap-window-location . 'right)
+;;    ;;(minimap-hide-fringe . t)
+;;    (minimap-update-delay . 0.05)
+;;    (minimap-minimum-width . 10)
+;;    (minimap-width-fraction . 0.01)
+;;    (minimap-enlarge-certain-faces . 'always) )
+;;   :custom-face
+;;   (minimap-font-face . '((t (:family "Minimap" :height 10))))
+;;   :config
+;;   (define-advice minimap-new-minimap (:after () hide-truncation-indicators)
+;;     "Hide truncation fringe indicators in the minimap buffer."
+;;     (with-current-buffer minimap-buffer-name
+;;       (fringe-mode '(4 . 4))
+;;       (push '(truncation nil nil) fringe-indicator-alist)))
+;;   (defun i-minimap-mouse-scroll (event)
+;;     (interactive "e")
+;;     (let* ((pointed-buffer (buffer-name (window-buffer (posn-window (event-start event)))))
+;;            (delta (if (eq (event-basic-type event) 'mouse-4) -1 1)))
+;;       (if (string-equal pointed-buffer minimap-buffer-name)
+;; 	  (mwheel-scroll event delta))))
+;; 	  ;; (if (eq delta -1) (scroll-down 40) (scroll-up 40))
+;;   ;;(good-scroll-move (* delta 600)) (mwheel-scroll event delta) )))
+;;   (global-set-key [mouse-4] #'i-minimap-mouse-scroll)
+;;   (global-set-key [mouse-5] #'i-minimap-mouse-scroll)
+;;   (global-set-key [left-fringe mouse-4] #'i-minimap-mouse-scroll)
+;;   (global-set-key [left-fringe mouse-5] #'i-minimap-mouse-scroll)
+;;   (global-set-key [right-fringe mouse-4] #'i-minimap-mouse-scroll)
+;;   (global-set-key [right-fringe mouse-5] #'i-minimap-mouse-scroll))
 
-
-(leaf neotree :require nil :ensure nil
-  :bind
-  ((neotree-mode-map
-    ("<f10>"   . neotree-toggle)
-    ("a"       . neotree-hidden-file-toggle)
-    ("<left>"  . neotree-select-up-node)
-    ("<right>" . neotree-change-root)))
-  :custom
-  ((neo-keymap-style quote concise)
-   (neo-show-hidden-files . t)
-   (neo-smart-open . t)
-   (neo-create-file-auto-open . t)
-   (neo-autorefresh . nil)
-   (neo-window-fixed-size . nil)
-   (neo-theme quote nerd)
-   (neo-window-width . 20))
-  :hook
-  (neotree-mode-hook . (lambda() (display-line-numbers-mode -1))) )
-
+;; (leaf neotree :require nil :ensure nil
+;;   :bind
+;;   ((neotree-mode-map
+;;     ("<f10>"   . neotree-toggle)
+;;     ("a"       . neotree-hidden-file-toggle)
+;;     ("<left>"  . neotree-select-up-node)
+;;     ("<right>" . neotree-change-root)))
+;;   :custom
+;;   ((neo-keymap-style quote concise)
+;;    (neo-show-hidden-files . t)
+;;    (neo-smart-open . t)
+;;    (neo-create-file-auto-open . t)
+;;    (neo-autorefresh . nil)
+;;    (neo-window-fixed-size . nil)
+;;    (neo-theme quote nerd)
+;;    (neo-window-width . 20))
+;;   :hook
+;;   (neotree-mode-hook . (lambda() (display-line-numbers-mode -1))) )
 
 (leaf treemacs :ensure t :require t
   :custom
@@ -578,7 +581,6 @@
   ((treemacs-mode-map ("<f10>" . treemacs)))
   :hook
   (treemacs-mode-hook . (lambda() (display-line-numbers-mode -1))) )
-
 
 (leaf idle-highlight-mode :require t :ensure t
   :custom (idle-highlight-idle-time . 0.05)
@@ -601,7 +603,6 @@
   :custom-face
   (idle-highlight . '((t (:background "gray22")))))
 
-
 (leaf highlight-symbol :require t :ensure t
   :bind ("<mouse-3>" . (lambda (c) (interactive "e") (mouse-set-point c) (highlight-symbol-at-point)))
   :custom*
@@ -618,24 +619,23 @@
           (doom-darken  (doom-color 'green)   0.2) (doom-darken (doom-color 'magenta) 0.2)
           (doom-darken  (doom-color 'cyan)    0.2) (doom-darken (doom-color 'violet)  0.2)))))
 
-
-(leaf copilot :ensure nil :require t
-  :init
-  (if (equal (shell-command-to-string "which node") "")
-      (progn (message "node is not installed")
-	     (async-shell-command "curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash - && sudo apt-get install -y nodejs") )
-    (message "node is already installed"))
-  (straight-use-package
-   '(copilot :host github :repo "copilot-emacs/copilot.el" :files ("dist" "*.el") :ensure t))
-  :hook
-  (prog-mode-hook . copilot-mode)
-  :bind
-  ((copilot-mode-map ("TAB"   . my/copilot-tab)))
-  :custom
-  (copilot-indent-offset-warning-disable . t)
-  :config
-  (defun my/copilot-tab ()
-    (interactive) (or (copilot-accept-completion) (indent-for-tab-command))))
+;; (leaf copilot :ensure nil :require t
+;;   :init
+;;   (if (equal (shell-command-to-string "which node") "")
+;;       (progn (message "node is not installed")
+;; 	     (async-shell-command "curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash - && sudo apt-get install -y nodejs") )
+;;     (message "node is already installed"))
+;;   (straight-use-package
+;;    '(copilot :host github :repo "copilot-emacs/copilot.el" :files ("dist" "*.el") :ensure t))
+;;   :hook
+;;   (prog-mode-hook . copilot-mode)
+;;   :bind
+;;   ((copilot-mode-map ("TAB"   . my/copilot-tab)))
+;;   :custom
+;;   (copilot-indent-offset-warning-disable . t)
+;;   :config
+;;   (defun my/copilot-tab ()
+;;     (interactive) (or (copilot-accept-completion) (indent-for-tab-command))))
 
 (leaf vlf :ensure t :require t
   :config
