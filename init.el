@@ -73,17 +73,11 @@
 ;;
 (leaf *theme
   :init
-  ;; window
-  (set-face-attribute 'default nil :family "Roboto Mono" :weight 'normal :height 105)
-  ;; (set-face-attribute 'italic nil  :family "Roboto Mono Italic" :foundry "pyrs"
-  ;;                     :underline nil :slant 'italic :height 105 :width 'normal )
-
   ;; (leaf doom-modeline :ensure t :require t
   ;;   :hook (after-init-hook . doom-modeline-mode)
   ;;   :custom
   ;;   ((doom-modeline-bar-width . 4)
   ;;    (doom-modeline-height . 25)))
-
   (leaf doom-themes :require t :ensure t
     :init
     (setq-default doom-themes-padded-modeline 4)
@@ -95,7 +89,6 @@
     :hook (after-init-hook . mood-line-mode)  :config
     :setq-default
     ((mood-line-glyph-alist . mood-line-glyphs-unicode)))
-  
   );; (leaf *theme)
 
 (leaf mozc :require t :ensure t
@@ -205,6 +198,24 @@
   :require t
   :bind (("C-x C-r" . recentf-find-file)))
 
+(leaf *font
+  :init
+  ;; Default
+  (set-face-attribute 'default nil :family "Roboto Mono" :weight 'normal :height 105)
+  (set-face-attribute 'italic nil  :family "Roboto Mono Italic" :foundry "pyrs"
+                      :underline nil :slant 'italic :height 105 :width 'normal )
+  ;; Japanese
+  (set-fontset-font t 'japanese-jisx0208 "TakaoGothic")
+  (add-to-list 'face-font-rescale-alist '(".*Takao .*" . 0.5))
+  ;; Emoji
+  (setq use-default-font-for-symbols nil)
+  (dolist (cat '((emoji  . ("Apple Color Emoji" "Noto Emoji" "Segoe UI Emoji" "Symbola" "Noto Color Emoji"))
+                 (symbol . ("Segoe UI Symbol" "Apple Symbols" "Symbola"))))
+    (let ((font (seq-find (lambda (f) (member f (font-family-list))) (cdr cat))))
+      (when font (set-fontset-font t (car cat) font))))
+  (when (eq system-type 'windows-nt)
+    (set-fontset-font t '(#x1F300 . #x1F5FF) "Segoe UI Symbol")))
+
 (leaf *global-settings
   :init
   (defalias 'yes-or-no-p 'y-or-n-p)
@@ -261,10 +272,6 @@
 	 (add-hook 'emacs-startup-hook 'kz-home-startup))
 	(t
 	 (add-hook 'emacs-startup-hook 'office-startup)))
-  
-  ;; default font
-  (set-fontset-font t 'japanese-jisx0208 "TakaoGothic")
-  (add-to-list 'face-font-rescale-alist '(".*Takao .*" . 0.5))
   
   ;;
   ;; backup
