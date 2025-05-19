@@ -75,26 +75,28 @@
   :init
   ;; window
   (set-face-attribute 'default nil :family "Roboto Mono" :weight 'normal :height 105)
-  (set-face-attribute 'italic nil  :family "Roboto Mono Italic" :foundry "pyrs"
-                      :underline nil :slant 'italic :height 105 :width 'normal )
+  ;; (set-face-attribute 'italic nil  :family "Roboto Mono Italic" :foundry "pyrs"
+  ;;                     :underline nil :slant 'italic :height 105 :width 'normal )
+
   ;; (leaf doom-modeline :ensure t :require t
   ;;   :hook (after-init-hook . doom-modeline-mode)
   ;;   :custom
   ;;   ((doom-modeline-bar-width . 4)
   ;;    (doom-modeline-height . 25)))
-  (leaf mood-line  :ensure t :require t
-    :hook (after-init-hook . mood-line-mode)
-    :custom-face
-    (mode-line . '((t (:box (:line-width (4 . 4) :color "#0f1011")))))
-    :setq-default
-    ((mood-line-glyph-alist . mood-line-glyphs-unicode)))
+
   (leaf doom-themes :require t :ensure t
-    :config
-    ;; (load-theme 'doom-solarized-dark-high-contrast t)
+    :init
+    (setq-default doom-themes-padded-modeline 4)
     (load-theme 'doom-tomorrow-night t)
     (doom-themes-visual-bell-config)
-    (doom-themes-org-config)))
+    (doom-themes-org-config))
 
+  (leaf mood-line :ensure t :require t
+    :hook (after-init-hook . mood-line-mode)  :config
+    :setq-default
+    ((mood-line-glyph-alist . mood-line-glyphs-unicode)))
+  
+  );; (leaf *theme)
 
 (leaf mozc :require t :ensure t
   :config
