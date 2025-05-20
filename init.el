@@ -233,7 +233,7 @@
   (xterm-mouse-mode 1)
 
   (setq warning-minimum-level :emergency)
-  
+
   ;; scroll
   (setq mouse-wheel-progressive-speed nil)
   (setq mouse-wheel-scroll-amount '(5 ((shift) . 5) ((control) . nil)))
@@ -297,7 +297,31 @@
 (leaf htmlize :ensure t)
 
 (leaf elscreen :ensure t :require t
-  :init   (elscreen-start)
+  :init
+  (elscreen-start)
+  (defun elscreen-frame-title-update ()
+    (when (elscreen-screen-modified-p 'elscreen-frame-title-update)
+      (let* ((screen-list (sort (elscreen-get-screen-list) '<))
+             (screen-to-name-alist
+              (cl-remove-if (lambda (item)
+                              (string-match "\\*NeoTree\\*" (cdr item)))
+                            (elscreen-get-screen-to-name-alist)))
+             (title (concat "|    "
+                            (mapconcat
+                             (lambda (screen)
+                               (let ((screen-name (cdr (assoc screen screen-to-name-alist))))
+                                 (if screen-name
+                                     (format (if (string-equal "+" (elscreen-status-label screen)) "[%d] %s" " %d  %s")
+                                             screen (elscreen-truncate-screen-name screen-name 40))
+                                   "")))
+                                     screen-list "    |    ") "    |")))
+        (if (fboundp 'set-frame-name)
+            (set-frame-name title)
+          (setq frame-title-format title)))))
+
+  (eval-after-load "elscreen"
+    '(add-hook 'elscreen-screen-update-hook 'elscreen-frame-title-update))
+
   :custom ((elscreen-prefix-key . "\C-z")
            (elscreen-display-tab . nil)
            (elscreen-tab-display-kill-screen . nil)
