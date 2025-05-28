@@ -1,4 +1,4 @@
-;; (setq debug-on-error t)
+(setq debug-on-error t)
 
 ;; this enables this running method
 ;;   emacs -q -l ~/.debug.emacs.d/{{pkg}}/init.el
@@ -7,14 +7,15 @@
     (setq user-emacs-directory
           (expand-file-name
            (file-name-directory (or load-file-name byte-compile-current-file))))))
+
 (eval-and-compile
   (customize-set-variable
-   'package-archives '(("org"    . "https://orgmode.org/elpa/")
-                       ("melpa"  . "https://melpa.org/packages/")
-                       ("elpa"   . "https://elpa.gnu.org/packages/")
+   'package-archives '(("org" . "https://orgmode.org/elpa/")
+                       ("melpa" . "https://melpa.org/packages/")
+                       ("elpa" . "https://elpa.gnu.org/packages/")
                        ("stable" . "https://stable.melpa.org/packages/")
                        ("nongnu" . "https://elpa.nongnu.org/nongnu/")
-	               ("tromey" . "http://tromey.com/elpa/")))
+	                   ("tromey" . "http://tromey.com/elpa/")))
   (package-initialize)
   (unless (package-installed-p 'leaf)
     ;;(package-refresh-contents t)
@@ -42,20 +43,6 @@
     (load bootstrap-file nil 'nomessage)))
 
 (add-to-list 'load-path "~/.emacs.d/user-el")
-
-;;
-;; ido mode
-;;
-(leaf *ido-mode
-  :init
-  (if (version< emacs-version "24.4")
-    (leaf ido-vertical-mode :require t :ensure t
-      :config (ido-mode t) (ido-vertical-mode t)
-      :custom
-      ((ido-use-filename-at-point . 'guess)
-       ;;(setq ido-create-new-buffer 'never)
-       (ido-default-buffer-method . 'selected-window))))
-  (fido-vertical-mode))
 
 ;;
 ;; text mode
@@ -91,6 +78,62 @@
     ((mood-line-glyph-alist . mood-line-glyphs-unicode)))
   );; (leaf *theme)
 
+(leaf *completion
+  :config
+  ;; (if (version< emacs-version "24.4")
+  (leaf ido-vertical-mode :require t :ensure t
+    :config (ido-mode t) (ido-vertical-mode t)
+    :custom
+    ((ido-use-filename-at-point . 'guess)
+     ;;(setq ido-create-new-buffer 'never)
+     (ido-default-buffer-method . 'selected-window)))
+  ;; ) (fido-vertical-mode)
+
+  (leaf orderless :require t :ensure t
+    :custom
+    (completion-styles . '(orderless basic))
+    (completion-category-overrides . '((file (styles basic partial-completion)))))
+
+  (leaf recentf :require t :ensure t
+    :init
+    (recentf-mode 1)
+    (setq-default completions-sort nil)
+    (setq-default recentf-max-saved-items 1000)
+    (setq-default recentf-auto-cleanup 'never)
+    (setq-default recentf-auto-save-timer
+                  (run-with-idle-timer 30 t 'recentf-save-list))
+    (defun local/recentf-ido-vertical ()
+      "Use `ido-completing-read` with vertical display to open recent files."
+      (interactive)
+      (let ((file (ido-completing-read "Recentf: " recentf-list nil t)))
+        (when file (find-file file)))))
+
+  (leaf company :ensure t :require t
+    :url "https://github.com/company-mode/company-mode"
+    :doc "http://company-mode.github.io"
+    :defun (global-company-mode
+            company-abort)
+    :config
+    (global-company-mode)
+    :custom
+    ((auto-complete-mode . nil)
+     (company-transformers . '(company-sort-by-backend-importance))
+     (company-idle-delay .  0.2)
+     (company-minimum-prefix-length . 2)
+     (company-selection-wrap-around . t)
+     (completion-ignore-case . t)
+     (company-dabbrev-downcase . nil)
+     (company-shell-dont-fetch-meta . t)))
+
+  (leaf flycheck :require t :ensure t
+    :config
+    (global-flycheck-mode t)
+    (add-to-list 'flycheck-checkers 'cuda-nvcc)
+    :setq-default
+    (enable-local-variables . :all)
+    (flycheck-checker-error-threshold . 10000))
+  );; (leaf *completion)
+
 (leaf mozc :require t :ensure t
   :config
   ;;(load-library "mozc")
@@ -99,6 +142,37 @@
   (global-set-key (kbd "C-\\") 'toggle-input-method))
 ;;   (prefer-coding-system 'utf-8)
 ;;   (prefer-coding-system 'utf-8-unix))
+
+(leaf *font
+  :init
+  ;; Default
+  (set-face-attribute 'default nil :family "Roboto Mono" :weight 'normal :height 105)
+  (set-face-attribute 'italic nil  :family "Roboto Mono Italic" :foundry "pyrs"
+                      :underline nil :slant 'italic :height 105 :width 'normal )
+  ;; Japanese
+  (set-fontset-font t 'japanese-jisx0208 "TakaoGothic")
+  (add-to-list 'face-font-rescale-alist '(".*Takao .*" . 0.5))
+  ;; Emoji
+  (setq use-default-font-for-symbols nil)
+  (dolist (cat '((emoji  . ("Apple Color Emoji" "Noto Emoji" "Segoe UI Emoji" "Symbola" "Noto Color Emoji"))
+                 (symbol . ("Segoe UI Symbol" "Apple Symbols" "Symbola"))))
+    (let ((font (seq-find (lambda (f) (member f (font-family-list))) (cdr cat))))
+      (when font (set-fontset-font t (car cat) font))))
+  (when (eq system-type 'windows-nt)
+    (set-fontset-font t '(#x1F300 . #x1F5FF) "Segoe UI Symbol"))
+  ;; Limit font scale
+  (setq-default local/max-font-height 300)
+  (defun local/limit-text-scale-increase (orig-fn &rest args)
+    "Wrap `text-scale-increase` and `text-scale-adjust` to limit font height."
+    (let* ((base-height (face-attribute 'default :height nil))
+           (scale (or text-scale-mode-amount 0))
+           (arg (or (car args) 1))
+           (new-scale (+ scale arg))
+           (new-height (truncate (* base-height (expt text-scale-mode-step new-scale)))))
+      (if (> new-height local/max-font-height)
+          (message "Font height limit exceeded.")
+        (apply orig-fn args))))
+  (advice-add 'text-scale-increase :around #'local/limit-text-scale-increase))
 
 (leaf *global-key-binds
   :bind*
@@ -109,6 +183,7 @@
   ("<mouse-9>" . mode-line-next-buffer)
   ("C-x k"     . kill-this-buffer)
   ("C-c C-d"   . toggle-current-window-dedication)
+  ("C-x C-r"   . local/recentf-ido-vertical)
   ;; window resize
   ("C-x {" . (lambda () (interactive) (enlarge-window -20 t)))
   ("C-x }" . (lambda () (interactive) (enlarge-window  20 t)))
@@ -175,46 +250,6 @@
     (define-key global-map (kbd "C-q") ctl-q-keymap))
   ;; end of (leaf *q-map)
   )
-
-
-(leaf recentf
-  :require t
-  :custom
-  ((recentf-max-saved-items . 1000)
-   (recentf-auto-cleanup   . 'never))
-  :config
-  (recentf-mode 1)
-  (run-with-idle-timer 30 t 'recentf-save-list))
-
-(leaf recentf-find-file
-  :init
-  (let* ((target-dir (expand-file-name "~/.emacs.d/user_el/"))
-         (target-file (concat target-dir "recentf-find-file.el"))
-         (url "https://gist.githubusercontent.com/s-fubuki/8f8d292683efd52aab18cc182513d068/raw/74639ac4623fbfb93239009048f133ecee51893a/recentf-find-file.el"))
-    (unless (file-exists-p target-file)
-      (make-directory target-dir t)
-      (shell-command (format "curl -L %s -o %s" url target-file))))
-  :load-path "~/.emacs.d/user-el/"
-  :require t
-  :bind (("C-x C-r" . recentf-find-file)))
-
-(leaf *font
-  :init
-  ;; Default
-  (set-face-attribute 'default nil :family "Roboto Mono" :weight 'normal :height 105)
-  (set-face-attribute 'italic nil  :family "Roboto Mono Italic" :foundry "pyrs"
-                      :underline nil :slant 'italic :height 105 :width 'normal )
-  ;; Japanese
-  (set-fontset-font t 'japanese-jisx0208 "TakaoGothic")
-  (add-to-list 'face-font-rescale-alist '(".*Takao .*" . 0.5))
-  ;; Emoji
-  (setq use-default-font-for-symbols nil)
-  (dolist (cat '((emoji  . ("Apple Color Emoji" "Noto Emoji" "Segoe UI Emoji" "Symbola" "Noto Color Emoji"))
-                 (symbol . ("Segoe UI Symbol" "Apple Symbols" "Symbola"))))
-    (let ((font (seq-find (lambda (f) (member f (font-family-list))) (cdr cat))))
-      (when font (set-fontset-font t (car cat) font))))
-  (when (eq system-type 'windows-nt)
-    (set-fontset-font t '(#x1F300 . #x1F5FF) "Segoe UI Symbol")))
 
 (leaf *global-settings
   :init
