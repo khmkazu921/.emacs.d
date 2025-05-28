@@ -81,12 +81,22 @@
 (leaf *completion
   :config
   ;; (if (version< emacs-version "24.4")
-  (leaf ido-vertical-mode :require t :ensure t
-    :config (ido-mode t) (ido-vertical-mode t)
+  (leaf ido-mode :require t :ensure t
+    :init (ido-mode 1)
     :custom
     ((ido-use-filename-at-point . 'guess)
      ;;(setq ido-create-new-buffer 'never)
+     (ido-enable-flex-matching  . t)
      (ido-default-buffer-method . 'selected-window)))
+  
+  (leaf amx :require t :ensure t
+    :init (amx-mode 1))
+  
+  (leaf ido-completing-read+ :require t :ensure t
+    :init (ido-ubiquitous-mode 1))
+
+  (leaf ido-vertical-mode :require t :ensure t
+    :init (ido-vertical-mode t))
   ;; ) (fido-vertical-mode)
 
   (leaf orderless :require t :ensure t
