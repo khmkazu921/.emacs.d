@@ -187,7 +187,7 @@
 (leaf *global-key-binds
   :bind*
   ;; other-window
-  ("<C-tab>" . ace-window)
+  ;; ("<C-tab>" . ace-window)
   ;; buffer related
   ("<mouse-8>" . mode-line-previous-buffer)
   ("<mouse-9>" . mode-line-next-buffer)
@@ -506,8 +506,15 @@
   (leaf gnuplot :require t :ensure t)
   
   (leaf verilog-mode :require t :ensure t
-    ;; :config
-    ;;(add-hook 'verilog-mode-hook #'lsp)
+    :config
+    (add-to-list 'hs-special-modes-alist
+                 '(verilog-mode
+                   "\\<\\(begin\\|case\\|fork\\|task\\|function\\)\\>"
+                   "\\<\\(end\\|endcase\\|join\\|endtask\\|endfunction\\)\\>"
+                   nil
+                   (lambda (_arg) (verilog-forward-sexp)) nil))
+    :hook ( (verilog-mode-hook . hs-minor-mode) )
+    :bind ( ("<C-tab>" . hs-toggle-hiding) )
     :custom
     ((verilog-align-ifelse                     . nil)
      (verilog-auto-delete-trailing-whitespace . t   )
@@ -523,9 +530,12 @@
      ;;(verilog-highlight-modules               . t   )
      (verilog-indent-level                    . 4   )
      (verilog-indent-level-behavioral         . 4   )
+     (verilog-indent-level-directive          . 0   )
      (verilog-indent-level-declaration        . 4   )
      (verilog-indent-level-module             . 4   )
-     (verilog-tab-to-comment                  . nil ))) ;; (leaf verilog-mode)
+     (verilog-tab-to-comment                  . nil )
+     (verilog-indent-lists                    . nil ))
+    ) ;; (leaf verilog-mode)
   ) ;; (leaf *prog-mode)
 
 (leaf multiple-cursors :require t :ensure t
