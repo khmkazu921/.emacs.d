@@ -80,14 +80,21 @@
 
 (leaf *completion
   :config
-  ;; (if (version< emacs-version "24.4")
-  (leaf ido-mode :require t :ensure t
+  (leaf *ido-mode
     :init (ido-mode 1)
     :custom
     ((ido-use-filename-at-point . 'guess)
      ;;(setq ido-create-new-buffer 'never)
      (ido-enable-flex-matching  . t)
-     (ido-default-buffer-method . 'selected-window)))
+     (ido-default-buffer-method . 'selected-window))
+    :config
+    (defun local/switch-buffer-ido-fullpath ()
+      "Switch buffer via `ido`, showing full path if available."
+      (interactive)
+      (let* ((choices (mapcar (lambda (b) (or (buffer-file-name b) (buffer-name b))) (buffer-list)))
+             (choice (ido-completing-read "Buffer: " choices nil t)))
+        (when choice (switch-to-buffer (or (get-file-buffer choice) (get-buffer choice))))))
+    ) ;; ido-mode
   
   (leaf amx :require t :ensure t
     :init (amx-mode 1))
@@ -192,6 +199,8 @@
   ("<mouse-8>" . mode-line-previous-buffer)
   ("<mouse-9>" . mode-line-next-buffer)
   ("C-x k"     . kill-this-buffer)
+  ("C-x b"     . local/switch-buffer-ido-fullpath)
+  ("C-x C-b"   . local/switch-buffer-ido-fullpath)
   ("C-c C-d"   . toggle-current-window-dedication)
   ("C-x C-r"   . local/recentf-ido-vertical)
   ;; window resize
