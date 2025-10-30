@@ -27,20 +27,30 @@
       :custom ((el-get-git-shallow-clone . t)))
     (leaf-keywords-init)))
 
-(leaf straight
-  :init
-  (defvar bootstrap-version)
-  (let ((bootstrap-file
-	 (expand-file-name "straight/repos/straight.el/bootstrap.el" user-emacs-directory))
-	(bootstrap-version 5))
-    (unless (file-exists-p bootstrap-file)
-      (with-current-buffer
-          (url-retrieve-synchronously
-           "https://raw.githubusercontent.com/raxod502/straight.el/develop/install.el"
-           'silent 'inhibit-cookies)
-	(goto-char (point-max))
-	(eval-print-last-sexp)))
-    (load bootstrap-file nil 'nomessage)))
+;; For Debug
+(dolist (pkg '(leaf-keywords el-get doom-themes mood-line amx
+             ido-completing-read+ ido-vertical-mode orderless recentf
+             company flycheck mozc htmlize elscreen atomic-chrome
+             markdown-mode cuda-mode gnuplot verilog-mode multiple-cursors
+             web-mode which-key popper multi-term treemacs
+             idle-highlight-mode highlight-symbol))
+  (unless (package-installed-p pkg)
+    (message "Missing package: %s" pkg)))
+
+;; (leaf straight
+;;   :init
+;;   (defvar bootstrap-version)
+;;   (let ((bootstrap-file
+;; 	 (expand-file-name "straight/repos/straight.el/bootstrap.el" user-emacs-directory))
+;; 	(bootstrap-version 5))
+;;     (unless (file-exists-p bootstrap-file)
+;;       (with-current-buffer
+;;           (url-retrieve-synchronously
+;;            "https://raw.githubusercontent.com/raxod502/straight.el/develop/install.el"
+;;            'silent 'inhibit-cookies)
+;; 	(goto-char (point-max))
+;; 	(eval-print-last-sexp)))
+;;     (load bootstrap-file nil 'nomessage)))
 
 (add-to-list 'load-path "~/.emacs.d/user-el")
 
