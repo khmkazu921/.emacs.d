@@ -518,8 +518,8 @@
     :config
     (add-to-list 'hs-special-modes-alist
                  '(verilog-mode
-                   "\\<\\(begin\\|case\\|fork\\|task\\|function\\)\\>"
-                   "\\<\\(end\\|endcase\\|join\\|endtask\\|endfunction\\)\\>"
+                   "\\<\\(begin\\|case\\|fork\\|task\\|function\\)\\>\\|("
+                   "\\<\\(end\\|endcase\\|join\\|endtask\\|endfunction\\)\\>\\|)"
                    nil
                    (lambda (_arg) (verilog-forward-sexp)) nil))
     :hook ( (verilog-mode-hook . hs-minor-mode) )
