@@ -690,30 +690,42 @@
   (treemacs-mode-hook . (lambda() (display-line-numbers-mode -1))) )
 
 (leaf idle-highlight-mode :require t :ensure t
-  :custom (idle-highlight-idle-time . 0.05)
+  :custom (idle-highlight-idle-time . 0.1)
   :preface
-  (defun advice/face-has-background-color (face)
-    "Check if the FACE has a specified background color."
-    (and (facep face) (not (equal (face-attribute face :background nil t) 'unspecified))))
-  
-  (defun advice/idle-highlight-has-no-background-color-at-point (orig-func pos)
-    "Return nil if there is no background color at the position POS, t otherwise.
-     Also serves as an advice function for idle-highlight--check-faces-at-point."
-    (let ((faces (or (get-text-property pos 'face) 'default)))
-      (unless (listp faces) (setq faces (list faces)))
-      (if (not (seq-every-p 'advice/face-has-background-color faces))
-          nil (funcall orig-func pos))))
+  (defun my/idle-highlight-guard (orig pos)
+    (unless
+        (seq-some
+         (lambda (ov)
+           (let ((f (overlay-get ov 'face)))
+             (and (symbolp f)
+                  (string-prefix-p "symbol-overlay-face-"
+                                   (symbol-name f)))))
+         (overlays-at pos))
+      (funcall orig pos)))
   :advice
-  (:around idle-highlight--check-faces-at-point advice/idle-highlight-has-no-background-color-at-point)
+  (:around idle-highlight--check-faces-at-point my/idle-highlight-guard)
   :config
   (idle-highlight-global-mode)
   :custom-face
-  (idle-highlight . '((t (:background "gray22")))))
+  (idle-highlight ((t (:background "gray22")))))
 
-(leaf highlight-symbol :require t :ensure t
-  :bind ("<mouse-3>" . (lambda (c) (interactive "e") (mouse-set-point c) (highlight-symbol-at-point)))
-  :custom*
-  ((highlight-symbol-colors
+(leaf symbol-overlay :require t :ensure t
+  :bind ("<mouse-3>" . (lambda (c) (interactive "e") (mouse-set-point c) (symbol-overlay-put)))
+  :config
+  (require 'cl-lib)
+  (with-eval-after-load 'symbol-overlay
+    (setq symbol-overlay-faces
+          (cl-loop for i from 1 to 24
+                   collect
+                   (let ((face (intern (format "symbol-overlay-face-%d" i))))
+                     (unless (facep face)
+                       (make-face face))
+                     face))))
+
+  (with-eval-after-load 'symbol-overlay
+    (cl-loop
+     for face in symbol-overlay-faces
+     for color in
     (list (doom-color 'red)   (doom-color 'yellow)  (doom-color 'blue) (doom-color 'orange)
           (doom-color 'green) (doom-color 'magenta) (doom-color 'cyan) (doom-color 'violet)
           (doom-color 'grey)  (doom-color 'fg)
@@ -724,7 +736,28 @@
 	      (doom-darken  (doom-color 'red)     0.3) (doom-darken (doom-color 'yellow)  0.3)
           (doom-darken  (doom-color 'blue)    0.2) (doom-darken (doom-color 'orange)  0.2)
           (doom-darken  (doom-color 'green)   0.2) (doom-darken (doom-color 'magenta) 0.2)
-          (doom-darken  (doom-color 'cyan)    0.2) (doom-darken (doom-color 'violet)  0.2)))))
+          (doom-darken  (doom-color 'cyan)    0.2) (doom-darken (doom-color 'violet)  0.2))
+     do
+     (set-face-attribute face nil
+                         :background color
+                         :foreground "black"
+                         :inherit nil))))
+
+;; (leaf highlight-symbol :require t :ensure t
+;;   :bind ("<mouse-3>" . (lambda (c) (interactive "e") (mouse-set-point c) (highlight-symbol-at-point)))
+;;   :custom*
+;;   ((highlight-symbol-colors
+;;     (list (doom-color 'red)   (doom-color 'yellow)  (doom-color 'blue) (doom-color 'orange)
+;;           (doom-color 'green) (doom-color 'magenta) (doom-color 'cyan) (doom-color 'violet)
+;;           (doom-color 'grey)  (doom-color 'fg)
+;; 	      (doom-lighten (doom-color 'red)     0.3) (doom-lighten (doom-color 'yellow) 0.3)
+;;           (doom-lighten (doom-color 'blue)    0.3) (doom-lighten (doom-color 'green)  0.3)
+;;           (doom-lighten (doom-color 'magenta) 0.3) (doom-lighten (doom-color 'cyan)   0.3)
+;;           (doom-lighten (doom-color 'violet)  0.3)
+;; 	      (doom-darken  (doom-color 'red)     0.3) (doom-darken (doom-color 'yellow)  0.3)
+;;           (doom-darken  (doom-color 'blue)    0.2) (doom-darken (doom-color 'orange)  0.2)
+;;           (doom-darken  (doom-color 'green)   0.2) (doom-darken (doom-color 'magenta) 0.2)
+;;           (doom-darken  (doom-color 'cyan)    0.2) (doom-darken (doom-color 'violet)  0.2)))))
 
 ;; (leaf copilot :ensure nil :require t
 ;;   :init
