@@ -305,6 +305,35 @@
     
   (setq font-lock-maximum-decoration t)
 
+  (leaf *async-save :ensure nil :require nil
+    :init
+    (defun local/save-buffer-async ()
+      "Save buffer asynchronously without blocking"
+      (interactive)
+      (let* ((buf (current-buffer))
+             (file (buffer-file-name buf)))
+        (if (not file)
+            (save-buffer)
+          (let ((content (with-current-buffer buf (buffer-string))))
+            (message "Async-Saving: %s..." (file-name-nondirectory file))
+            (async-start
+             `(lambda ()
+                (write-region ,content nil ,file nil :nomessage)
+                t)
+             (lambda (_result)
+               (when (buffer-live-p buf)
+                 (with-current-buffer buf
+                   (set-buffer-modified-p nil)
+                   (force-mode-line-update t)))))))))
+    
+    (add-hook 'kill-emacs-hook
+              (lambda ()
+                (dolist (buf (buffer-list))
+                  (with-current-buffer buf
+                    (when (and (buffer-modified-p) (buffer-file-name))
+                      (save-buffer))))))
+    );; *async-save
+
   ;; auto-mode-alist
   (setq auto-mode-alist
         (append '(("\\.sty\\'"   . tex-mode)
