@@ -90,6 +90,43 @@
 
 (leaf *completion
   :config
+  ;; (leaf vertico
+  ;;   :ensure t
+  ;;   :config
+  ;;   (vertico-mode 1))
+
+  ;; (leaf savehist
+  ;;   :config
+  ;;   (savehist-mode 1))
+
+  ;; (leaf recentf
+  ;;   :custom
+  ;;   ((recentf-max-saved-items . 500)
+  ;;    (recentf-auto-cleanup . 'never))
+  ;;   :config
+  ;;   (recentf-mode 1))
+
+  ;; (leaf orderless
+  ;;   :ensure t
+  ;;   :custom
+  ;;   ((completion-styles . '(orderless basic))
+  ;;    (completion-category-defaults . nil)
+  ;;    (completion-category-overrides . '((file (styles basic partial-completion))))))
+
+  ;; (leaf marginalia
+  ;;   :ensure t
+  ;;   :config
+  ;;   (marginalia-mode 1))
+
+  ;; (leaf consult
+  ;;   :ensure t
+  ;;   :bind
+  ;;   (("C-x C-r" . consult-recent-file)
+  ;;    ("C-x b"   . consult-buffer)
+  ;;    ("C-x C-b" . consult-buffer)
+  ;;    ("C-s"     . consult-line)
+  ;;    ("C-r"     . consult-ripgrep)))
+
   (leaf *ido-mode
     :init (ido-mode 1)
     :custom
